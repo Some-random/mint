@@ -1,0 +1,201 @@
+{
+  "artifacts": {
+    "checkpoint": {
+      "path": "/fsx/users/dongweij/mint/checkpoints/mint.ckpt",
+      "sha256": "84a4016365997cd9f0bccb07d746fa8f076ffd8e45aa0cbcf4e50a037161a342",
+      "size_bytes": 3253773059
+    },
+    "config": {
+      "path": "/fsx/users/dongweij/mint/data/esm2_t33_650M_UR50D.json",
+      "sha256": "b2e03145f7ae2acbbf74e3c3220dbfaf79e823499a977b8c305b0cd2fad5808c"
+    },
+    "csv": {
+      "path": "/fsx/users/dongweij/mint/data/protein_sequences.csv",
+      "sha256": "014898b225602002b7eeb3b6ff0dec253fe738e90e7f14d937a9a6e218dd4223"
+    },
+    "mlp_checkpoint": {
+      "path": "/fsx/users/dongweij/mint/checkpoints/bernett_mlp.pth",
+      "sha256": "702849af78e245c7596d8c032391da52ff6657e9173af380e29a8ea3858fdab9",
+      "size_bytes": 26236447
+    }
+  },
+  "batch_size_parity": {
+    "False": {
+      "allclose_rtol_1e-5_atol_1e-6": true,
+      "max_abs_diff": 9.5367431640625e-07
+    },
+    "True": {
+      "allclose_rtol_1e-5_atol_1e-6": true,
+      "max_abs_diff": 9.5367431640625e-07
+    }
+  },
+  "binary_head": {
+    "output_sha256": "c5d729d6b63ebdbdedf1c2512ca8d535cf925b32a4f65594be9dc59739b14be3",
+    "probabilities": [
+      0.39365771,
+      0.75133884,
+      0.98835713,
+      0.73448586,
+      0.53897935
+    ],
+    "process_incremental_peak_allocated_gib": 0.0,
+    "seconds": 0.005176,
+    "shape": [
+      5
+    ]
+  },
+  "command": [
+    "/fsx/users/dongweij/mint/scripts/phase0_smoke.py",
+    "--checkpoint",
+    "/fsx/users/dongweij/mint/checkpoints/mint.ckpt",
+    "--mlp-checkpoint",
+    "/fsx/users/dongweij/mint/checkpoints/bernett_mlp.pth",
+    "--config",
+    "/fsx/users/dongweij/mint/data/esm2_t33_650M_UR50D.json",
+    "--csv",
+    "/fsx/users/dongweij/mint/data/protein_sequences.csv",
+    "--device",
+    "cuda:0",
+    "--repeats",
+    "3",
+    "--output",
+    "/fsx/users/dongweij/mint/phase0_smoke_results.json"
+  ],
+  "cuda_visible_devices": "7",
+  "dataset_rows": 5,
+  "device": "cuda:0",
+  "device_free_gib_after_model_load": 32.697,
+  "device_free_gib_before_model_load": 39.081,
+  "device_total_gib": 39.495,
+  "embedding_runs": [
+    {
+      "batch_size": 1,
+      "device_free_gib_after_run": 35.767,
+      "device_total_gib": 39.495,
+      "end_to_end_seconds": [
+        0.192355,
+        0.191129,
+        0.191156
+      ],
+      "mean": 0.007746288552880287,
+      "mean_end_to_end_seconds": 0.191547,
+      "mean_seconds_per_pair": 0.038309,
+      "output_sha256": "c6c56b081997e362c933f4708e211e4ac04c3cb5346b5575110dfe140b3d90a1",
+      "process_baseline_allocated_gib": 3.104,
+      "process_baseline_reserved_gib": 3.225,
+      "process_incremental_peak_allocated_gib": 0.005,
+      "process_incremental_peak_reserved_gib": 0.006,
+      "process_peak_allocated_gib": 3.109,
+      "process_peak_reserved_gib": 3.23,
+      "repeat_max_abs_diff": 0.0,
+      "repeats": 3,
+      "sep_chains": false,
+      "shape": [
+        5,
+        1280
+      ],
+      "std": 0.16395381093025208,
+      "stdev_end_to_end_seconds": 0.000572
+    },
+    {
+      "batch_size": 1,
+      "device_free_gib_after_run": 35.767,
+      "device_total_gib": 39.495,
+      "end_to_end_seconds": [
+        0.187862,
+        0.191845,
+        0.195667
+      ],
+      "mean": 0.007738062180578709,
+      "mean_end_to_end_seconds": 0.191791,
+      "mean_seconds_per_pair": 0.038358,
+      "output_sha256": "be9dcc15451c38c5768c14610ee63945c4b806a96f9316ca4189effeca25010e",
+      "process_baseline_allocated_gib": 3.104,
+      "process_baseline_reserved_gib": 3.225,
+      "process_incremental_peak_allocated_gib": 0.005,
+      "process_incremental_peak_reserved_gib": 0.006,
+      "process_peak_allocated_gib": 3.109,
+      "process_peak_reserved_gib": 3.23,
+      "repeat_max_abs_diff": 0.0,
+      "repeats": 3,
+      "sep_chains": true,
+      "shape": [
+        5,
+        2560
+      ],
+      "std": 0.1664280891418457,
+      "stdev_end_to_end_seconds": 0.003187
+    },
+    {
+      "batch_size": 2,
+      "device_free_gib_after_run": 35.767,
+      "device_total_gib": 39.495,
+      "end_to_end_seconds": [
+        0.118943,
+        0.12279,
+        0.122811
+      ],
+      "mean": 0.007746288552880287,
+      "mean_end_to_end_seconds": 0.121515,
+      "mean_seconds_per_pair": 0.024303,
+      "output_sha256": "aead8478c5edef20a743d96959e259a6174049eaf22eb6f1bb680e9f4815c7b3",
+      "process_baseline_allocated_gib": 3.104,
+      "process_baseline_reserved_gib": 3.229,
+      "process_incremental_peak_allocated_gib": 0.011,
+      "process_incremental_peak_reserved_gib": 0.002,
+      "process_peak_allocated_gib": 3.115,
+      "process_peak_reserved_gib": 3.23,
+      "repeat_max_abs_diff": 0.0,
+      "repeats": 3,
+      "sep_chains": false,
+      "shape": [
+        5,
+        1280
+      ],
+      "std": 0.16395381093025208,
+      "stdev_end_to_end_seconds": 0.001819
+    },
+    {
+      "batch_size": 2,
+      "device_free_gib_after_run": 35.767,
+      "device_total_gib": 39.495,
+      "end_to_end_seconds": [
+        0.119263,
+        0.12363,
+        0.123682
+      ],
+      "mean": 0.007738060783594847,
+      "mean_end_to_end_seconds": 0.122192,
+      "mean_seconds_per_pair": 0.024438,
+      "output_sha256": "92d37e8885ed6390868f45a0ea8d10ca7d279903f79a11b14dd3179872352974",
+      "process_baseline_allocated_gib": 3.104,
+      "process_baseline_reserved_gib": 3.229,
+      "process_incremental_peak_allocated_gib": 0.011,
+      "process_incremental_peak_reserved_gib": 0.002,
+      "process_peak_allocated_gib": 3.115,
+      "process_peak_reserved_gib": 3.23,
+      "repeat_max_abs_diff": 0.0,
+      "repeats": 3,
+      "sep_chains": true,
+      "shape": [
+        5,
+        2560
+      ],
+      "std": 0.1664280891418457,
+      "stdev_end_to_end_seconds": 0.002071
+    }
+  ],
+  "git_commit": "06694b7606e2d00b76ec58daf5c7aecdaf7cd283",
+  "gpu_name": "NVIDIA A100-SXM4-40GB",
+  "hostname": "gpu-dy-p4d24xlarge-5",
+  "model_load_seconds": 10.3,
+  "nvidia_driver_versions": [
+    "570.86.15"
+  ],
+  "process_model_allocated_gib": 3.095,
+  "process_model_load_peak_allocated_gib": 6.189,
+  "process_model_load_peak_reserved_gib": 6.385,
+  "process_model_reserved_gib": 6.385,
+  "torch_cuda_version": "12.8",
+  "torch_version": "2.9.1+cu128"
+}
