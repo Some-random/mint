@@ -1,6 +1,8 @@
 import argparse
+import inspect
 import json
 import math
+import random
 from collections import OrderedDict
 
 import pandas as pd
@@ -10,6 +12,14 @@ from torch.utils.data import Dataset
 
 from ..data import Alphabet
 from ..model.esm2 import ESM2
+
+
+def torch_load_compat(path, map_location):
+    """Load an explicit full checkpoint across old and new PyTorch versions."""
+    kwargs = {"map_location": map_location}
+    if "weights_only" in inspect.signature(torch.load).parameters:
+        kwargs["weights_only"] = False
+    return torch.load(path, **kwargs)
 
 
 def load_config(path):
@@ -59,7 +69,7 @@ class CollateFn:
             for i in range(batch_size):
                 seq = seq_encoded_list[i]
                 if len(seq) > self.truncation_seq_length:
-                    start = random.randint(0, len(seq) - self.truncation_seq_length + 1)
+                    start = random.randint(0, len(seq) - self.truncation_seq_length)
                     seq_encoded_list[i] = seq[start : start + self.truncation_seq_length]
         max_len = max(len(seq_encoded) for seq_encoded in seq_encoded_list)
         if self.truncation_seq_length:
@@ -92,7 +102,7 @@ class MINTWrapper(nn.Module):
             token_dropout=cfg.token_dropout,
             use_multimer=use_multimer,
         )
-        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        checkpoint = torch_load_compat(checkpoint_path, map_location=device)
         if use_multimer:
             # remove 'model.' in keys
             new_checkpoint = OrderedDict(
