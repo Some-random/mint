@@ -1,0 +1,201 @@
+{
+  "artifacts": {
+    "checkpoint": {
+      "path": "/fsx/users/dongweij/mint/checkpoints/mint.ckpt",
+      "sha256": "84a4016365997cd9f0bccb07d746fa8f076ffd8e45aa0cbcf4e50a037161a342",
+      "size_bytes": 3253773059
+    },
+    "config": {
+      "path": "/fsx/users/dongweij/mint/data/esm2_t33_650M_UR50D.json",
+      "sha256": "b2e03145f7ae2acbbf74e3c3220dbfaf79e823499a977b8c305b0cd2fad5808c"
+    },
+    "csv": {
+      "path": "/fsx/users/dongweij/mint/data/protein_sequences.csv",
+      "sha256": "014898b225602002b7eeb3b6ff0dec253fe738e90e7f14d937a9a6e218dd4223"
+    },
+    "mlp_checkpoint": {
+      "path": "/fsx/users/dongweij/mint/checkpoints/bernett_mlp.pth",
+      "sha256": "702849af78e245c7596d8c032391da52ff6657e9173af380e29a8ea3858fdab9",
+      "size_bytes": 26236447
+    }
+  },
+  "batch_size_parity": {
+    "False": {
+      "allclose_rtol_1e-5_atol_1e-6": true,
+      "max_abs_diff": 7.152557373046875e-07
+    },
+    "True": {
+      "allclose_rtol_1e-5_atol_1e-6": true,
+      "max_abs_diff": 9.5367431640625e-07
+    }
+  },
+  "binary_head": {
+    "output_sha256": "3ca960394c16445f25fc10f217733e4a04315e95c03dbef2fda8ffa0e6265de9",
+    "probabilities": [
+      0.39365727,
+      0.75133878,
+      0.98835725,
+      0.73448479,
+      0.53898191
+    ],
+    "process_incremental_peak_allocated_gib": 0.0,
+    "seconds": 0.001071,
+    "shape": [
+      5
+    ]
+  },
+  "command": [
+    "/fsx/users/dongweij/mint/scripts/phase0_smoke.py",
+    "--checkpoint",
+    "/fsx/users/dongweij/mint/checkpoints/mint.ckpt",
+    "--mlp-checkpoint",
+    "/fsx/users/dongweij/mint/checkpoints/bernett_mlp.pth",
+    "--config",
+    "/fsx/users/dongweij/mint/data/esm2_t33_650M_UR50D.json",
+    "--csv",
+    "/fsx/users/dongweij/mint/data/protein_sequences.csv",
+    "--device",
+    "cuda:0",
+    "--repeats",
+    "3",
+    "--output",
+    "/fsx/users/dongweij/mint/phase0_smoke_results_pinned.json"
+  ],
+  "cuda_visible_devices": "7",
+  "dataset_rows": 5,
+  "device": "cuda:0",
+  "device_free_gib_after_model_load": 32.277,
+  "device_free_gib_before_model_load": 38.661,
+  "device_total_gib": 39.495,
+  "embedding_runs": [
+    {
+      "batch_size": 1,
+      "device_free_gib_after_run": 35.181,
+      "device_total_gib": 39.495,
+      "end_to_end_seconds": [
+        0.284935,
+        0.287232,
+        0.287386
+      ],
+      "mean": 0.007746289484202862,
+      "mean_end_to_end_seconds": 0.286518,
+      "mean_seconds_per_pair": 0.057304,
+      "output_sha256": "3396ef0d714f2a5efc6bbe2a6235b0d3877c5d4a215a20c4e5e3190fd66cecaf",
+      "process_baseline_allocated_gib": 3.095,
+      "process_baseline_reserved_gib": 3.205,
+      "process_incremental_peak_allocated_gib": 0.005,
+      "process_incremental_peak_reserved_gib": 0.004,
+      "process_peak_allocated_gib": 3.1,
+      "process_peak_reserved_gib": 3.209,
+      "repeat_max_abs_diff": 0.0,
+      "repeats": 3,
+      "sep_chains": false,
+      "shape": [
+        5,
+        1280
+      ],
+      "std": 0.16395381093025208,
+      "stdev_end_to_end_seconds": 0.001121
+    },
+    {
+      "batch_size": 1,
+      "device_free_gib_after_run": 35.181,
+      "device_total_gib": 39.495,
+      "end_to_end_seconds": [
+        0.281006,
+        0.288288,
+        0.287069
+      ],
+      "mean": 0.007738062180578709,
+      "mean_end_to_end_seconds": 0.285454,
+      "mean_seconds_per_pair": 0.057091,
+      "output_sha256": "d9690fe858745479983e066110aedf12eaa8e442c3df9e52942f98f478a336ee",
+      "process_baseline_allocated_gib": 3.095,
+      "process_baseline_reserved_gib": 3.205,
+      "process_incremental_peak_allocated_gib": 0.005,
+      "process_incremental_peak_reserved_gib": 0.004,
+      "process_peak_allocated_gib": 3.1,
+      "process_peak_reserved_gib": 3.209,
+      "repeat_max_abs_diff": 0.0,
+      "repeats": 3,
+      "sep_chains": true,
+      "shape": [
+        5,
+        2560
+      ],
+      "std": 0.1664280891418457,
+      "stdev_end_to_end_seconds": 0.003184
+    },
+    {
+      "batch_size": 2,
+      "device_free_gib_after_run": 35.181,
+      "device_total_gib": 39.495,
+      "end_to_end_seconds": [
+        0.18048,
+        0.184741,
+        0.185448
+      ],
+      "mean": 0.007746289484202862,
+      "mean_end_to_end_seconds": 0.183556,
+      "mean_seconds_per_pair": 0.036711,
+      "output_sha256": "dfa6005d150b23356e476c985d71fc1db4f247e3e8b463af0bcea6edaeb2b202",
+      "process_baseline_allocated_gib": 3.095,
+      "process_baseline_reserved_gib": 3.207,
+      "process_incremental_peak_allocated_gib": 0.011,
+      "process_incremental_peak_reserved_gib": 0.002,
+      "process_peak_allocated_gib": 3.106,
+      "process_peak_reserved_gib": 3.209,
+      "repeat_max_abs_diff": 0.0,
+      "repeats": 3,
+      "sep_chains": false,
+      "shape": [
+        5,
+        1280
+      ],
+      "std": 0.16395381093025208,
+      "stdev_end_to_end_seconds": 0.002194
+    },
+    {
+      "batch_size": 2,
+      "device_free_gib_after_run": 35.181,
+      "device_total_gib": 39.495,
+      "end_to_end_seconds": [
+        0.181669,
+        0.185555,
+        0.185159
+      ],
+      "mean": 0.007738060783594847,
+      "mean_end_to_end_seconds": 0.184128,
+      "mean_seconds_per_pair": 0.036826,
+      "output_sha256": "e89bd9b1ce72b52b2317d60ed67f4a638b8eb9110e9c8177e0238ced867acb54",
+      "process_baseline_allocated_gib": 3.095,
+      "process_baseline_reserved_gib": 3.205,
+      "process_incremental_peak_allocated_gib": 0.011,
+      "process_incremental_peak_reserved_gib": 0.004,
+      "process_peak_allocated_gib": 3.106,
+      "process_peak_reserved_gib": 3.209,
+      "repeat_max_abs_diff": 0.0,
+      "repeats": 3,
+      "sep_chains": true,
+      "shape": [
+        5,
+        2560
+      ],
+      "std": 0.1664280891418457,
+      "stdev_end_to_end_seconds": 0.001746
+    }
+  ],
+  "git_commit": "460d6911a3752253fa72f068e5ddcd7dd5c87b84",
+  "gpu_name": "NVIDIA A100-SXM4-40GB",
+  "hostname": "gpu-dy-p4d24xlarge-5",
+  "model_load_seconds": 13.352,
+  "nvidia_driver_versions": [
+    "570.86.15"
+  ],
+  "process_model_allocated_gib": 3.095,
+  "process_model_load_peak_allocated_gib": 6.189,
+  "process_model_load_peak_reserved_gib": 6.385,
+  "process_model_reserved_gib": 6.385,
+  "torch_cuda_version": "11.3",
+  "torch_version": "1.12.1"
+}

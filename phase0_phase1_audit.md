@@ -2,11 +2,13 @@
 
 Audit date: 2026-08-05 UTC
 
-Local repository commit: `06694b7606e2d00b76ec58daf5c7aecdaf7cd283`
+Upstream repository commit audited: `06694b7606e2d00b76ec58daf5c7aecdaf7cd283`
+
+Compatibility commit exercised by the pinned smoke: `460d6911a3752253fa72f068e5ddcd7dd5c87b84`
 
 Scope: static repository audit, private-data inventory, public model-landscape triage, and public Phase 0 runtime reproduction.
 
-Runtime status: **public smoke passed on the assigned GPU node with PyTorch 2.9.1; the unchanged pinned environment was created and its PyTorch 1.12 checkpoint-load incompatibility was reproduced.**
+Runtime status: **public smoke passed on the assigned GPU node under both PyTorch 2.9.1 and the repository's pinned PyTorch 1.12.1 environment after one isolated compatibility commit.**
 
 ## Executive summary
 
@@ -15,7 +17,7 @@ Runtime status: **public smoke passed on the assigned GPU node with PyTorch 2.9.
 - The configured `MutationalPPI` task does not use its mutant sequence columns: it is dispatched through `CSVDataset`, not `MutationalCSVDataset`. This is a static code-path finding and must be reproduced at runtime before any patch.
 - The existing GeneralPPI training code is not a valid evaluation harness for the private assay without changes to splitting, preprocessing, evaluation mode, target inversion, artifact provenance, and cache keys.
 - No private LibA/LibB raw assay table, full WT sequences, sequence mappings, or cleavage-capture table is present. Phase 1 therefore reaches the explicit stop condition in `preview.md`: implementation must not guess the missing biology or provenance.
-- The official public checkpoint, all-five-pair embedding smoke, and Bernett binary head run successfully on an A100 under a compatible modern PyTorch environment. The repository's exact pinned environment also installs and imports, but current HEAD cannot load the checkpoint there because it passes a post-1.12 `weights_only` argument to PyTorch 1.12.1.
+- The official public checkpoint, all-five-pair embedding smoke, and Bernett binary head run successfully on an A100 under both a modern PyTorch environment and the exact pinned environment after commit `460d691`. Before the fix, the pinned environment reproduced the post-1.12 `weights_only` incompatibility exactly.
 - MINT remains the primary model. TUnA-R and Topsy-Turvy/D-SCRIPT are the lowest-effort public secondary diagnostics. PLM-interact mutation/Gold and RaftPPI are later comparisons. The other candidates are reference-only or deferred for the first milestone.
 
 ## 1. Repository architecture map
@@ -149,12 +151,12 @@ The repository README's intended sequence is: create the pinned environment, ins
 | Bernett MLP download/hash | complete | `26,236,447` bytes; SHA-256 `702849af78e245c7596d8c032391da52ff6657e9173af380e29a8ea3858fdab9` |
 | Five-pair embedding smoke | complete on modern runtime | All five public rows, not merely `next(iter(loader))`; finite outputs and batch-size parity verified |
 | GPU model/VRAM | complete | `gpu-dy-p4d24xlarge-5`; 8× NVIDIA A100-SXM4-40GB, driver 570.86.15, approximately 40,443 MiB free per GPU before use |
-| Process CUDA allocation, batch 1 | complete | 3.109 GiB peak allocated including the 3.104 GiB model baseline; 0.005 GiB incremental on the short public pairs |
-| Process CUDA allocation, batch 2 | complete | 3.115 GiB peak allocated including the 3.104 GiB model baseline; 0.011 GiB incremental on the short public pairs |
-| Checkpoint-load allocation | complete | 6.189 GiB process peak allocated and 6.385 GiB peak reserved under PyTorch 2.9.1; allocator metrics are not total device use or a minimum hardware claim |
+| Process CUDA allocation, batch 1 | complete | 3.100 GiB peak allocated including the 3.095 GiB model baseline; 0.005 GiB incremental on the short public pairs under the pinned runtime |
+| Process CUDA allocation, batch 2 | complete | 3.106 GiB peak allocated including the 3.095 GiB model baseline; 0.011 GiB incremental on the short public pairs under the pinned runtime |
+| Checkpoint-load allocation | complete | 6.189 GiB process peak allocated and 6.385 GiB peak reserved under both tested runtimes; allocator metrics are not total device use or a minimum hardware claim |
 | Joint/separate embedding shapes | complete | `(5, 1280)` joint and `(5, 2560)` with `sep_chains=True`, for batch sizes 1 and 2 |
-| Official binary PPI checkpoint | complete on modern runtime | Five finite probabilities produced: `0.39365771`, `0.75133884`, `0.98835713`, `0.73448586`, `0.53897935` |
-| Unchanged pinned checkpoint load | reproduced failure | `TypeError: 'weights_only' is an invalid keyword argument for Unpickler()` from `extract.py:95` under PyTorch 1.12.1 |
+| Official binary PPI checkpoint | complete under pinned runtime | Five finite probabilities produced: `0.39365727`, `0.75133878`, `0.98835725`, `0.73448479`, `0.53898191` |
+| Pinned checkpoint-load compatibility | reproduced and fixed | Pre-fix: `TypeError: 'weights_only' is an invalid keyword argument for Unpickler()`; post-fix: full smoke passes under PyTorch 1.12.1 |
 
 The current official Hugging Face artifact is `3,253,773,059` bytes, not the older 9.76 GB figure observed during the initial metadata audit. It was downloaded from the README source, and its local SHA-256 matches current Hugging Face LFS metadata. The binary head was verified the same way. Checkpoints are stored under ignored `checkpoints/`.
 
@@ -165,7 +167,7 @@ Compatibility findings reproduced before patching:
 - `mint/utils/wrapper.py` imports `wandb`, which is not declared in the inspected environment, and refers to `.utils.logging` although `logging.py` is a sibling module.
 - `train.py` hard-codes eight GPU indices and expects model JSON/PT locations that do not match the inspected config placement.
 
-The first two failures are now runtime-confirmed. They should receive the smallest version-aware/source-local fix in a separate commit; the other observations remain outside the public inference smoke path.
+The first two failures were runtime-confirmed and fixed in separate commit `460d691`: `torch_load_compat` only supplies `weights_only=False` when the installed PyTorch exposes that parameter, and the crop path imports `random` and uses a length-preserving upper bound. Three regression tests pass under the pinned environment. The other observations remain outside the public inference smoke path.
 
 ## 4. Phase 1 private-data inventory
 
@@ -219,7 +221,7 @@ Classification is for this first Affibody–pMHC milestone, not a ranking of gen
 | Topsy-Turvy | [paper](https://academic.oup.com/bioinformatics/article/38/Supplement_1/i264/6617505), [D-SCRIPT repo](https://github.com/samsledje/D-SCRIPT), [checkpoint](https://huggingface.co/samsl/topsy_turvy_human_v1) | Frozen Bepler–Berger residue embeddings followed by a learned contact-map interaction head | Protein pair; binary PPI | Public small task head and MIT code; old dependencies but comparatively cheap. No native pMHC multichain or retention output | `run-now` as a diagnostic |
 | TUnA | [TUnA-R paper](https://academic.oup.com/bib/article/25/5/bbae359/7720609), [TUnA-R repo](https://github.com/young-su-ko/TUnA-R), [weights](https://huggingface.co/yk0/tuna-r-tuna) | ESM-2 150M with intra/inter-protein transformers and an uncertainty-aware SNGP head | Protein pair; PPI probability and uncertainty | Public refactor and weights; pair-only and no native mutation/retention task. Practical runtime must be measured | `run-now` as a secondary diagnostic |
 | PPI-RIS → **ppIRIS** | [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC13159128/), [repo](https://github.com/lupiochi/ppiris) | ESM-C 300M and ProstT5 global representations with Siamese/cross-attention fusion | Protein pair; binary pathogen–host/bacterial PPI | Public code (Apache-2.0 indicated); two large backbones and domain mismatch raise first-milestone cost | `defer` |
-| MINT-PPI → **MINT** | [paper](https://www.nature.com/articles/s41467-025-67971-3), [repo](https://github.com/VarunUllanat/mint), [checkpoint](https://huggingface.co/varunullanat2012/mint) | ESM-2 650M with native chain-aware intra-chain and cross-chain attention | Multiple interacting chains; frozen embeddings, PPI tasks, and mutation/affinity examples | MIT repository; verified public checkpoint is 3.253 GB. Public A100 inference and the binary head run successfully; pinned-runtime load needs one compatibility fix | `run-now`, primary |
+| MINT-PPI → **MINT** | [paper](https://www.nature.com/articles/s41467-025-67971-3), [repo](https://github.com/VarunUllanat/mint), [checkpoint](https://huggingface.co/varunullanat2012/mint) | ESM-2 650M with native chain-aware intra-chain and cross-chain attention | Multiple interacting chains; frozen embeddings, PPI tasks, and mutation/affinity examples | MIT repository; verified public checkpoint is 3.253 GB. Public A100 inference and the binary head run successfully under the pinned runtime after the isolated compatibility fix | `run-now`, primary |
 | FlashPPI | [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC13291599/), [repo](https://github.com/TattaBio/FlashPPI), [weights](https://huggingface.co/tattabio/flashppi) | gLM2 650M dual retrieval plus a contact reranker | Protein pair; large-scale microbial PPI retrieval/reranking | Public artifacts, but repository/model-card licensing needs reconciliation; domain and engineering mismatch | `defer` |
 | RaftPPI | [paper](https://openreview.net/pdf/ac61178a0bca360ce214f120e626fc847b044710.pdf), [repo](https://github.com/AndyJZhao/RaftPPI) | Small ESM-2 representation plus Fourier-factorized pair retrieval | Protein pair; binary/retrieval-style PPI | MIT repository and public checkpoints; reported work used A100-class training. Pair-only but a plausible later common-split baseline | `run-now` after primary diagnostics |
 | PLM-Interact Gold | [PLM-interact repo](https://github.com/liudan111/PLM-interact), [Gold checkpoint](https://huggingface.co/danliu1226/PLM-interact-650M-Leakage-Free-Dataset), [mutation checkpoint](https://huggingface.co/danliu1226/PLM-interact-650M-Mutation) | Same ESM-2 650M two-protein joint architecture, trained on leakage-controlled or mutation-specific data | Binary PPI; mutation checkpoint predicts binary increase/decrease rather than absolute retention | Public checkpoints; not a distinct architecture. Useful reference only after canonical split/label semantics are aligned | `reference-only` |
@@ -266,8 +268,8 @@ Prefer no shared change. If runtime reproduction proves a shared compatibility f
 
 ## 7. Dynamic execution result and next boundary
 
-Steps 1–8 were completed on `gpu-dy-p4d24xlarge-5`. The successful evidence artifact is `phase0_smoke_results.json`, generated by `scripts/phase0_smoke.py` under Python 3.10.19 / PyTorch 2.9.1+cu128 on physical GPU 7. It records command arguments, node/runtime versions, Git commit, artifact hashes, three warmed timing repetitions, allocator measurements, output hashes, and batch-size parity. Timing includes collation and device transfers and is only a smoke measurement on 11–20-residue public inputs, not a pMHC throughput benchmark.
+Steps 1–8 were completed on `gpu-dy-p4d24xlarge-5`. `phase0_smoke_results.json` preserves the initial Python 3.10.19 / PyTorch 2.9.1+cu128 run. The primary final artifact, `phase0_smoke_results_pinned.json`, was generated under Python 3.7.12 / PyTorch 1.12.1+cu113 at compatibility commit `460d691`. Both used physical GPU 7. The artifacts record command arguments, node/runtime versions, Git commit, file hashes, three warmed timing repetitions, allocator measurements, output hashes, and batch-size parity. Timing includes collation and device transfers and is only a smoke measurement on 11–20-residue public inputs, not a pMHC throughput benchmark.
 
-The full declared Python 3.7/PyTorch 1.12 environment was then created unchanged and passed `import mint`. Its first checkpoint load failed exactly at the known `weights_only` incompatibility, and the separate overlength-collator probe reproduced the missing-`random` failure. The next repository action is a small compatibility commit followed by rerunning the same harness under the pinned environment.
+The full declared environment was created unchanged and passed `import mint`. Its first checkpoint load failed exactly at the known `weights_only` incompatibility, and the separate overlength-collator probe reproduced the missing-`random` failure. After the separate compatibility commit, three regression tests and the full pinned GPU smoke pass. The modern and pinned probabilities differ only at low floating-point precision, as expected across PyTorch/CUDA generations.
 
 No private model training or `AffibodyMHC` adapter should start until the Phase 1 blockers are resolved.
