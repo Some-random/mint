@@ -42,3 +42,17 @@ test.ipynb
 *.ckpt
 *.pt
 checkpoints/
+
+# Local Affibody project inputs, private results, and generated test artifacts.
+# Reusable source code and tests live under downstream/AffibodyMHC and tests/.
+/private_data/
+/pytest-of-ubuntu/
+/Affibody-MHC data summary.pptx
+/Affibody coevolution dataset.zip
+/Affibody coevolution dataset_updated.zip
+/Summary of affibody project Feb 2026 v2.pptx
+/preview.md
+/affibody-8-21.txt
+/affibody-8-28.txt
+/meeting_transcript.txt
+/nyeso_xx133_complex.pdb

@@ -1,0 +1,120 @@
+{
+  "schema_version": "esmfold2-libb-frozen-readouts-v1",
+  "purpose": "Matched frozen-feature readouts selected only on canonical LibB weak-label validation",
+  "dataset": {
+    "library": "LibB",
+    "weak_label_definition": "unchanged canonical pooled R009/R010 positive and canonical selection-negative definitions",
+    "cleaning": "c0",
+    "balance": "all_class_weighted",
+    "rows": 30648,
+    "positive": 23725,
+    "negative": 6923,
+    "source_sequence_pair_membership_sha256": "1a9a0527c5f9f0e2bbeff6a0ea3d9afaaeadace894d46e73311b049a19f8a393",
+    "row_id_membership_sha256": "de2b721ee5c7d5f351305b164b837e57215989005bc1482082f2c484b9874643",
+    "training_label_columns": [
+      "row_id",
+      "weak_label",
+      "peptide_id",
+      "affibody_id",
+      "chain1_sha256",
+      "chain2_sha256"
+    ]
+  },
+  "feature_contract": {
+    "distogram_bin_semantics": "64 checkpoint output categories; no public checkpoint-calibrated Angstrom edges are assumed",
+    "distogram_probabilities_shape_per_pair": [9, 58, 64],
+    "pair_states_symmetric_shape_per_pair": [9, 58, 256],
+    "single_inputs_peptide_shape_per_pair": [9, 451],
+    "single_inputs_affibody_shape_per_pair": [58, 451],
+    "cache_format": "label-free metadata.csv plus float .npy arrays opened with mmap_mode=r",
+    "approximate_float16_bytes_for_30648_weak_rows": {
+      "distogram_probabilities": 2047776768,
+      "pair_states_symmetric": 8191107072,
+      "single_inputs_peptide": 248800464,
+      "single_inputs_affibody": 1603380768,
+      "total": 12091065072
+    }
+  },
+  "models": [
+    "distogram_only",
+    "pair_state_only",
+    "distogram_pair",
+    "single_inputs_only",
+    "full"
+  ],
+  "architecture": {
+    "pair_hidden_dim": 32,
+    "single_interaction_dim": 32,
+    "classifier_hidden_dim": 32,
+    "dropout": 0.1,
+    "pooling": "position-aware learned attention plus unweighted mean and max",
+    "output": "one current-pair binary logit"
+  },
+  "expected_trainable_parameters": {
+    "distogram_only": 7713,
+    "pair_state_only": 14241,
+    "distogram_pair": 16417,
+    "single_inputs_only": 35553,
+    "full": 46433
+  },
+  "validation": {
+    "regime": "double_cold",
+    "folds": 3,
+    "split_seed": 17,
+    "training_seed": 20260829,
+    "guard_rule": "rows sharing exactly one held partner identity are excluded from both training and validation",
+    "model_selection_target": "weak_validation_log_loss",
+    "final_epoch_rule": "integer median of the three fold-specific best epochs",
+    "fold_contracts": {
+      "0": {
+        "train": 13174,
+        "guard": 13895,
+        "validation": 3579,
+        "validation_positive": 2790,
+        "source_train_sequence_pair_sha256": "129aa59306d4816dc65e4dd5621e06160a51a46fb0d9fc59abcca0d1c3bf19ad",
+        "source_validation_sequence_pair_sha256": "d7652d12b3b042fb30dd86217d1d2e8394390d355650e7f0485240f946e5bef1",
+        "train_row_id_sha256": "79644ad94e399260408d0762eef8728803096ea2d953ad3e0bc0de5e9a870dab",
+        "validation_row_id_sha256": "3fe08579a40ebcce63a0b1500e8eaaae5832e49efe3e574ff519fc33e54a966c"
+      },
+      "1": {
+        "train": 14825,
+        "guard": 13060,
+        "validation": 2763,
+        "validation_positive": 2232,
+        "source_train_sequence_pair_sha256": "51c8948ab4bbf46dd343990d70e56f0a594842679f88caf837c136b7dd3a03f8",
+        "source_validation_sequence_pair_sha256": "de82dff8b2bf16fc6d7e9529b3cf55f27bdf92b9fb33bb3bcea8bf08bdede8d0",
+        "train_row_id_sha256": "fd2d958aa9cc707f08e2c901b8269f6e5526a5dbc7253d9b660ff8dde917b48c",
+        "validation_row_id_sha256": "7b128d05c3e0c8664853c3ad47dbc842c7d45b5d49f38d67765a864718dc0b2a"
+      },
+      "2": {
+        "train": 12830,
+        "guard": 13979,
+        "validation": 3839,
+        "validation_positive": 2917,
+        "source_train_sequence_pair_sha256": "c8fbae12761c3793667ba7dcfe06bff861e0577fb687cc5731dc97072ccb4acb",
+        "source_validation_sequence_pair_sha256": "294619a95304b9731db2f5d36ed52f8c0e220371b528cc2b5fc63806adc68b98",
+        "train_row_id_sha256": "0e6b696a36eee3bab5d11225ac065145083057350f868d3e5f8bbf284ae77c72",
+        "validation_row_id_sha256": "93e501084970f120ff01d54c4a9311d193f7116cdd1cb8f7b2aeea64bd6b316d"
+      }
+    }
+  },
+  "optimization": {
+    "loss": "class_weighted_bce",
+    "class_weight_formula": "N/(2*N_class)",
+    "optimizer": "AdamW",
+    "learning_rate": 0.0003,
+    "weight_decay": 0.0001,
+    "batch_size": 64,
+    "evaluation_batch_size": 128,
+    "max_epochs": 50,
+    "early_stopping_patience": 7,
+    "early_stopping_min_delta": 0.00001,
+    "num_workers": 0,
+    "hyperparameter_grid": null
+  },
+  "final_training": {
+    "seeds": [20260811, 20260812, 20260813, 20260814, 20260815],
+    "backbone_frozen": true,
+    "retention_labels_allowed": false
+  }
+}
