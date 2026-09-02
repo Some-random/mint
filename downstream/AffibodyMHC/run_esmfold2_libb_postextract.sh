@@ -6,7 +6,8 @@
 set -Eeuo pipefail
 umask 077
 
-PROJECT_ROOT=/fsx/users/dongweij/mint
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 PYTHON_BIN="$PROJECT_ROOT/private_data/envs/esmfold2_hf_5_16_1_torch291cu126/bin/python"
 FEATURE_ROOT="$PROJECT_ROOT/private_data/derived/esmfold2_libb_features_bce015ef_seed20260829_v1"
 ROW_MANIFEST="$PROJECT_ROOT/private_data/derived/esmfold2_libb_canonical_rows_v1/rows.json"

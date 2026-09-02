@@ -1,13 +1,26 @@
 # Affibody project recovery manifest
 
-Backup date: 2026-09-01 UTC
+Initial backup date: 2026-09-01 UTC
+Latest source/report update: 2026-09-02 UTC
 
 This repository contains the complete reusable Affibody modeling source,
 configuration, tests, and the original MINT history. The branch
 `backup/affibody-work-2026-09-01` is the recovery branch.
 
-Private experimental material is stored as release assets rather than normal
-Git objects:
+Three curated narrative reports are tracked as normal Git objects because they
+were prepared explicitly for public-facing review:
+
+- `private_data/affibody_modeling_report_public_2026-08-17.md`;
+- `private_data/esmfold2_libb_report_public_2026-09-01.md`;
+- `private_data/affibody_weak_label_report_public_2026-09-02.md`.
+
+The 2026-09-02 source update also adds the frozen-MINT intermediate-layer
+sweep, PNU weak-label training, aggregation, convergence checks, and their
+focused tests. Row-level data, generated predictions, model features, and all
+other private experimental material remain excluded from Git.
+
+The bulk 2026-09-01 private snapshot is stored as release assets rather than
+normal Git objects:
 
 | Asset | Size | SHA-256 |
 |---|---:|---|
@@ -15,9 +28,9 @@ Git objects:
 | `Affibody coevolution dataset.zip` | 1,026,267,412 bytes | `d91914a20c02aef78970af833f6443f47355dea8a21972e0c5609f2f2f3a4e3a` |
 
 The private-materials archive contains 1,597 files (1,240,104,960 bytes before
-compression): reports, plans, transcripts, presentations, the updated sequence
-archive, the reference PDB, all experiment directories, compact derived data,
-and structure-analysis manifests/results.
+compression): the reports as they existed on 2026-09-01, plans, transcripts,
+presentations, the updated sequence archive, the reference PDB, experiment
+directories, compact derived data, and structure-analysis manifests/results.
 
 The following bulk objects are deliberately omitted because they are
 downloadable or reproducible from the retained code, inputs, manifests, and

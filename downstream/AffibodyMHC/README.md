@@ -24,8 +24,9 @@ diagnostic, and a position-wise amino-acid additive model under repeated random,
 peptide-cold, Affibody-cold, and strict double-cold splits.
 
 All private inputs and generated predictions/results must remain under the
-Git-excluded `private_data/` tree. The reusable code contains no private
-measurements or sequence codes.
+Git-excluded `private_data/` tree. The source does not embed raw experimental
+rows, but it does contain unpublished project-specific methods and constants;
+the repository must therefore remain private.
 
 Row identifiers in private prediction artifacts are deterministic pseudonyms,
 not anonymous values; the small code space makes dictionary recovery possible.
@@ -115,17 +116,31 @@ nonbinding. R009/R010 were chosen after inspecting the retention experiment, so
 these results require prospective confirmation even though retention labels are
 excluded from fitting and checkpoint selection.
 
-Canonical balanced-pilot retention results (Spearman / AUROC / AUPRC) are:
+The current interpretation is maintained in three narrative reports:
 
-- LibA frozen MINT head: `0.5905 / 0.6850 / 0.4432`; rank-2 LoRA:
-  `0.5986 / 0.6940 / 0.4519` (best weak-validation epoch 1).
-- LibB frozen MINT head: `0.8298 / 0.8958 / 0.9008`; LoRA is identical because
-  weak validation selected epoch 0.
+- `private_data/affibody_modeling_report_public_2026-08-17.md` covers the
+  sequence-only controls, frozen MINT, LoRA, and the intermediate-layer
+  ablation;
+- `private_data/esmfold2_libb_report_public_2026-09-01.md` covers frozen
+  ESMFold2 representations;
+- `private_data/affibody_weak_label_report_public_2026-09-02.md` covers the
+  PNU weak-label experiments.
 
-LibA therefore shows a small ranking improvement, while LibB provides no evidence
-that adapter updates help. These probabilities are uncalibrated across selection
-and retention assays; ranking metrics, not probability error or retention MAE, are
-the intended comparison. Conditional paired row-bootstrap intervals for every
-LoRA-minus-control ranking delta include zero. The next prespecified sensitivity is LibB-only training
-on all eligible candidates with inverse-frequency class weighting, because the
-balanced pilot omits 10,630 eligible positives.
+The reports use one public metric set: AUROC, average precision, average
+within-peptide Spearman, and precision/recall/F1 at a clearly labeled
+retrospective cutoff. The real validation is a future wet-lab experiment with
+the model and recommendation rule locked before new retention measurements are
+known.
+
+## Intermediate MINT layers and PNU training
+
+`extract_mint_multilayer_cache.py`, `evaluate_mint_multilayer.py`, and
+`aggregate_mint_multilayer_parallel.py` implement the frozen-layer sweep. They
+reuse a single MINT forward pass to save the requested layers and choose the
+readout using identity-separated weak-label validation.
+
+`build_pu_unlabeled_pool.py`, `train_pnu_site.py`, and
+`train_pnu_mint_readout.py` implement the P/N/U comparison. The corresponding
+aggregation and audit scripts preserve all assumed positive fractions instead
+of choosing one from retention performance. Generated pools, feature caches,
+predictions, and manifests must remain under ignored `private_data/` paths.
