@@ -34,7 +34,7 @@ The private release attached to the matching tag is the recovery unit. Its
 
 | Asset | Purpose |
 |---|---|
-| `Affibody coevolution dataset.zip` | Original provider source archive, retained byte-for-byte and treated as opaque because it contains an unusual root-directory entry. |
+| `Affibody.coevolution.dataset.zip` | Original provider source archive, retained byte-for-byte; GitHub normalizes the source filename's spaces to periods. Treat it as opaque because it contains an unusual root-directory entry. |
 | `affibody_private_materials_2026-09-01.tar.zst` | Verified legacy private snapshot covering the work completed through 2026-09-01. |
 | `affibody_private_current_2026-09-04.tar.zst` | Current compact inputs, audits, reports, corrected LibB results, LibA sequence/structure results, trained small readout heads, and final handoffs. |
 | `affibody_liba_exhaustive_scores_2026-09-04.tar.zst` | LibA selection-missed universe and the canonical exhaustive score tables used to build the prospective handoff. |
@@ -91,7 +91,7 @@ Verify the downloaded release in one directory:
 
 ```bash
 sha256sum -c SHA256SUMS
-unzip -tqq 'Affibody coevolution dataset.zip'
+unzip -tqq Affibody.coevolution.dataset.zip
 zstd -t affibody_private_materials_2026-09-01.tar.zst
 zstd -t affibody_private_current_2026-09-04.tar.zst
 zstd -t affibody_liba_exhaustive_scores_2026-09-04.tar.zst
