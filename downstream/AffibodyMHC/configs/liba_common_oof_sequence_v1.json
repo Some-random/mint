@@ -1,0 +1,60 @@
+{
+  "schema_version": "liba-common-oof-sequence-config-v1",
+  "purpose": "Retention-blind common-OOF and deployable sequence-only LibA heads",
+  "dataset": {
+    "library": "LibA",
+    "weak_rows": 22542,
+    "weak_positive": 11320,
+    "weak_negative": 11222,
+    "evaluation_rows": 108,
+    "weak_membership_sha256": "477d5113204d109333f74ae6051443f6a175a56b75500505418cb5efa2d99e3e"
+  },
+  "validation": {
+    "regime": "double_cold",
+    "folds": 3,
+    "split_seed": 17,
+    "selection_metric": "pooled_weak_validation_log_loss",
+    "guard_rule": "rows sharing exactly one held partner are excluded from training and validation"
+  },
+  "logistic": {
+    "c_grid": [0.001, 0.01, 0.1, 1.0],
+    "class_weight": "balanced",
+    "solver": "liblinear",
+    "max_iter": 2000,
+    "additive_tol": 1e-8,
+    "mint_tol": 0.0001
+  },
+  "models": {
+    "additive_6site": {
+      "feature": "position-specific 20-amino-acid one-hot",
+      "dimension": 120
+    },
+    "frozen_mint_layer9": {
+      "feature_key": "mint_layer_09_chain_mean",
+      "dimension": 2560,
+      "standardization": "training-fold mean and population standard deviation"
+    },
+    "frozen_mint_layer33_control": {
+      "feature_key": "mint_layer_33_chain_mean",
+      "dimension": 2560,
+      "standardization": "training-fold mean and population standard deviation"
+    },
+    "nonlinear_6site": {
+      "input_dimension": 120,
+      "hidden_dimensions": [64, 32],
+      "dropout": 0.1,
+      "optimizer": "AdamW",
+      "learning_rate": 0.0003,
+      "weight_decay": 0.0001,
+      "batch_size": 64,
+      "evaluation_batch_size": 256,
+      "max_epochs": 50,
+      "early_stopping_patience": 7,
+      "early_stopping_min_delta": 0.00001,
+      "class_weight_formula": "N/(2*N_class)",
+      "epoch_selection_seed": 20260811,
+      "final_seeds": [20260811, 20260812, 20260813, 20260814, 20260815]
+    }
+  },
+  "retention_labels_allowed": false
+}

@@ -11,8 +11,8 @@ from downstream.AffibodyMHC.wetlab_metrics import (
 
 
 def _panel():
-    # The second peptide intentionally lacks Affibody d.  This is the same
-    # kind of irregularity as LibB's 119/120 measured matrix and proves the
+    # The second peptide intentionally lacks Affibody d.  This represents the
+    # kind of irregularity a future candidate panel may contain and proves the
     # evaluator does not reshape or impute the missing cell.
     return pd.DataFrame(
         {

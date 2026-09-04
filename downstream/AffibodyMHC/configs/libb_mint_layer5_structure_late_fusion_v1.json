@@ -1,0 +1,90 @@
+{
+  "schema_version": "libb-structural-frozen-readouts-v1",
+  "purpose": "Locked capacity-matched comparison of frozen MINT layer 5, one frozen structural vector, and their late fusion",
+  "protocol_config": "esmfold2_libb_frozen_readouts_v1.json",
+  "dataset": {
+    "evaluation_rows": 120
+  },
+  "comparison": {
+    "require_sequence_control": false,
+    "arms_locked": true,
+    "template_requires_post_selection_lock": true,
+    "structural_representation_selection": "must be frozen before direct-retention evaluation and may use only the prespecified extraction definition or weak-label validation",
+    "fusion": "raw MINT and structural vectors are concatenated immediately before the shared frozen adapter",
+    "retention_allowed_for_training_or_selection": false
+  },
+  "feature_archive_contract": {
+    "required_manifest": {
+      "supervision_fields_read": [],
+      "source_fields_read": ["pair_uid", "mint_layer_05_chain_mean"],
+      "row_count": 30768,
+      "row_ids_sha256": "4e47d29c1d91b6890ba4c0de465eb22f9ad01aae1c500653d6160bc799f82674",
+      "fusion_contract": {
+        "mint_layer": 5,
+        "mint_source_key": "mint_layer_05_chain_mean",
+        "mint_output_array": "mint_layer05_global",
+        "mint_dimension": 2560,
+        "operation": "raw vector concatenation immediately before matched readout",
+        "upstream_encoders_frozen": true
+      }
+    }
+  },
+  "expected_input_dimensions": {
+    "mint_layer5_global": 2560,
+    "structure_selected": "LOCK_SELECTED_STRUCTURAL_DIMENSION",
+    "mint_layer5_plus_structure": "LOCK_SELECTED_STRUCTURAL_DIMENSION_PLUS_2560"
+  },
+  "models": [
+    {
+      "name": "mint_layer5_global",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "mint_layer05_global",
+          "pooling": "identity"
+        }
+      ]
+    },
+    {
+      "name": "structure_selected",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "structural_selected_vector",
+          "pooling": "identity"
+        }
+      ]
+    },
+    {
+      "name": "mint_layer5_plus_structure",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "mint_layer05_global",
+          "pooling": "identity"
+        },
+        {
+          "array": "structural_selected_vector",
+          "pooling": "identity"
+        }
+      ]
+    }
+  ],
+  "architecture": {
+    "adapter_dim": 4096,
+    "hidden_dims": [64, 32],
+    "dropout": 0.1,
+    "projection_seed": 20260903,
+    "input_adapter": "fixed injective orthonormal projection",
+    "classifier": "LayerNorm4096-Linear64-GELU-Dropout-LayerNorm64-Linear32-GELU-Dropout-Linear1",
+    "output": "one current-pair binary logit",
+    "capacity_note": "The 4096-wide adapter keeps the 2560-dimensional MINT vector and its structural concatenation injective; this increases every arm to the same 272641 trainable head parameters."
+  },
+  "expected_trainable_parameters": 272641,
+  "final_training": {
+    "pilot_seed": 20260811,
+    "seeds": [20260811, 20260812, 20260813, 20260814, 20260815],
+    "backbone_frozen": true,
+    "retention_labels_allowed": false
+  }
+}

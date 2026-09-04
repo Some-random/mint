@@ -1,0 +1,301 @@
+{
+  "schema_version": "libb-structural-frozen-readouts-v1",
+  "purpose": "Native learned-projection frozen RDE-PPI-derived LibB readouts selected only on weak-label validation",
+  "protocol_config": "esmfold2_libb_frozen_readouts_v1.json",
+  "dataset": {
+    "evaluation_rows": 120
+  },
+  "models": [
+    {
+      "name": "nonlinear_7site_control",
+      "source": "designed_sequence",
+      "views": []
+    },
+    {
+      "name": "rde_context_designed_ordered",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "rde_context_designed_ordered",
+          "pooling": "ordered_flatten"
+        }
+      ]
+    },
+    {
+      "name": "rde_context_designed_mean_max",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "rde_context",
+          "pooling": "mean_max",
+          "mask": "designed_mask"
+        }
+      ]
+    },
+    {
+      "name": "rde_context_all_resolved",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "rde_context",
+          "pooling": "mean_max",
+          "mask": "residue_mask"
+        }
+      ]
+    },
+    {
+      "name": "rde_network_fold0_designed_ordered",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "rde_network_fold0_context_designed_ordered",
+          "pooling": "ordered_flatten"
+        }
+      ]
+    },
+    {
+      "name": "rde_network_fold1_designed_ordered",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "rde_network_fold1_context_designed_ordered",
+          "pooling": "ordered_flatten"
+        }
+      ]
+    },
+    {
+      "name": "rde_network_fold2_designed_ordered",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "rde_network_fold2_context_designed_ordered",
+          "pooling": "ordered_flatten"
+        }
+      ]
+    },
+    {
+      "name": "rde_network_fold0_all_resolved",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "rde_network_fold0_context",
+          "pooling": "mean_max",
+          "mask": "residue_mask"
+        }
+      ]
+    },
+    {
+      "name": "rde_network_fold1_all_resolved",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "rde_network_fold1_context",
+          "pooling": "mean_max",
+          "mask": "residue_mask"
+        }
+      ]
+    },
+    {
+      "name": "rde_network_fold2_all_resolved",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "rde_network_fold2_context",
+          "pooling": "mean_max",
+          "mask": "residue_mask"
+        }
+      ]
+    }
+  ],
+  "prediction_ensembles": [
+    {
+      "name": "rde_network_designed_3fold_ensemble",
+      "members": [
+        "rde_network_fold0_designed_ordered",
+        "rde_network_fold1_designed_ordered",
+        "rde_network_fold2_designed_ordered"
+      ],
+      "method": "mean_logit"
+    },
+    {
+      "name": "rde_network_all_resolved_3fold_ensemble",
+      "members": [
+        "rde_network_fold0_all_resolved",
+        "rde_network_fold1_all_resolved",
+        "rde_network_fold2_all_resolved"
+      ],
+      "method": "mean_logit"
+    }
+  ],
+  "expected_input_dimensions": {
+    "nonlinear_7site_control": 140,
+    "rde_context_designed_ordered": 896,
+    "rde_context_designed_mean_max": 256,
+    "rde_context_all_resolved": 256,
+    "rde_network_fold0_designed_ordered": 896,
+    "rde_network_fold1_designed_ordered": 896,
+    "rde_network_fold2_designed_ordered": 896,
+    "rde_network_fold0_all_resolved": 256,
+    "rde_network_fold1_all_resolved": 256,
+    "rde_network_fold2_all_resolved": 256
+  },
+  "feature_archive_contract": {
+    "required_manifest": {
+      "schema_version": "libb-opaque-frozen-features-v1",
+      "producer_schema_version": "rde-libb-opaque-merge-v2",
+      "supervision_fields_read": [],
+      "feature_source": "both",
+      "absolute_current_pair": true,
+      "wt_mutant_subtraction_used": false,
+      "upstream": {
+        "repository": "https://github.com/luost26/RDE-PPI",
+        "commit": "58887deb851bd0903295671002693e180c2d51fb",
+        "license": "Apache-2.0",
+        "rde_checkpoint_sha256": "2dbf5413388b784df1a7e6a3408adbc4bb5bb0406cad4a6ef3bf4e473524db6f",
+        "rde_network_checkpoint_sha256": "7504a75fe8ed153c007d7371e41f11688379a982f94679575a6014ac13a8eb7f",
+        "rde_network_folds_emitted_separately": 3
+      },
+      "fixed_input": {
+        "canonical_rows_sha256": "c179996caafc91fb17ed6e56c56953ab01c6dfdf921f138b254c8aea1951e98e",
+        "canonical_schema": "esmfold2-libb-canonical-rows-v1",
+        "pdb_sha256": "59d026542cc42006302117cc79ad720497e69c4298f95598413f1d172d407b0e",
+        "crystal_chains": [
+          "A",
+          "B",
+          "P",
+          "H"
+        ],
+        "patch_size": 128,
+        "designed_residue_count": 7,
+        "designed_sidechain_cb_hidden": true,
+        "designed_chi_hidden": true,
+        "structure_contract": {
+          "schema_version": "libb-fixed-crystal-contract-v2",
+          "manifest_sha256": "d53fc4da6ec45273a07d6fa9c4a33bcde2849e9d688295f7673250738e52f51a",
+          "current_sequence_records_sha256": "f69f162d07a8cbcd778ef3e7db108e03163ebbc04f7eb6b1945089c9d49153e4",
+          "residue_mapping_sha256": "a3d08cfd4a4800d3cb2048dab420e50896f36534548988f282dfd184779c2258"
+        },
+        "assay_hla_identity_graft": [
+          {
+            "chain_id": "A",
+            "pdb_residue_number": 84,
+            "crystal_amino_acid": "Y",
+            "assay_amino_acid": "A",
+            "backbone_retained": true,
+            "cb_retained_as_alanine_approximation": true,
+            "chi_hidden": true
+          },
+          {
+            "chain_id": "A",
+            "pdb_residue_number": 167,
+            "crystal_amino_acid": "W",
+            "assay_amino_acid": "A",
+            "backbone_retained": true,
+            "cb_retained_as_alanine_approximation": true,
+            "chi_hidden": true
+          }
+        ],
+        "assay_hla_identity_graft_patch_status": [
+          {
+            "pdb_residue_number": 84,
+            "retained_in_patch": false,
+            "model_amino_acid": null,
+            "chi_hidden": null
+          },
+          {
+            "pdb_residue_number": 167,
+            "retained_in_patch": true,
+            "model_amino_acid": "A",
+            "chi_hidden": true
+          }
+        ]
+      },
+      "designed_feature_order": [
+        {
+          "chain_id": "P",
+          "partner_sequence_position_1_based": 4,
+          "displayed_sequence_position_1_based": null,
+          "provider_crystal_aligned_label_1_based": null,
+          "source_patch_index_0_based": 4
+        },
+        {
+          "chain_id": "P",
+          "partner_sequence_position_1_based": 5,
+          "displayed_sequence_position_1_based": null,
+          "provider_crystal_aligned_label_1_based": null,
+          "source_patch_index_0_based": 5
+        },
+        {
+          "chain_id": "H",
+          "partner_sequence_position_1_based": 6,
+          "displayed_sequence_position_1_based": 6,
+          "provider_crystal_aligned_label_1_based": 8,
+          "source_patch_index_0_based": 0
+        },
+        {
+          "chain_id": "H",
+          "partner_sequence_position_1_based": 10,
+          "displayed_sequence_position_1_based": 10,
+          "provider_crystal_aligned_label_1_based": 12,
+          "source_patch_index_0_based": 1
+        },
+        {
+          "chain_id": "H",
+          "partner_sequence_position_1_based": 13,
+          "displayed_sequence_position_1_based": 13,
+          "provider_crystal_aligned_label_1_based": 15,
+          "source_patch_index_0_based": 2
+        },
+        {
+          "chain_id": "H",
+          "partner_sequence_position_1_based": 14,
+          "displayed_sequence_position_1_based": 14,
+          "provider_crystal_aligned_label_1_based": 16,
+          "source_patch_index_0_based": 6
+        },
+        {
+          "chain_id": "H",
+          "partner_sequence_position_1_based": 17,
+          "displayed_sequence_position_1_based": 17,
+          "provider_crystal_aligned_label_1_based": 19,
+          "source_patch_index_0_based": 3
+        }
+      ]
+    }
+  },
+  "architecture": {
+    "readout_mode": "native_learned_projection",
+    "input_adapter": "trainable native projection",
+    "hidden_dims": [
+      64,
+      32
+    ],
+    "dropout": 0.1,
+    "classifier": "LayerNormNative-Linear64-GELU-Dropout-LayerNorm64-Linear32-GELU-Dropout-Linear1",
+    "output": "one current-pair binary logit"
+  },
+  "expected_trainable_parameters": {
+    "nonlinear_7site_control": 11545,
+    "rde_context_designed_ordered": 61441,
+    "rde_context_designed_mean_max": 19201,
+    "rde_context_all_resolved": 19201,
+    "rde_network_fold0_designed_ordered": 61441,
+    "rde_network_fold1_designed_ordered": 61441,
+    "rde_network_fold2_designed_ordered": 61441,
+    "rde_network_fold0_all_resolved": 19201,
+    "rde_network_fold1_all_resolved": 19201,
+    "rde_network_fold2_all_resolved": 19201
+  },
+  "final_training": {
+    "pilot_seed": 20260811,
+    "seeds": [
+      20260811,
+      20260812,
+      20260813,
+      20260814,
+      20260815
+    ],
+    "backbone_frozen": true,
+    "retention_labels_allowed": false
+  }
+}

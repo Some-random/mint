@@ -1,0 +1,16 @@
+{
+  "schema_version": "liba-model-comparison-config-v1",
+  "sources": [
+    {
+      "model": "provider_pooled_r009_r010_count",
+      "display_name": "Provider pooled R009+R010 count",
+      "path": "private_data/derived/liba_provider_pooled_score_and_candidates_108_20260904_v1/normalized_predictions.csv",
+      "id_column": "eval_row_id",
+      "score_column": "score",
+      "seed_column": "seed",
+      "filters": {
+        "model": "provider_pooled_r009_r010_count"
+      }
+    }
+  ]
+}

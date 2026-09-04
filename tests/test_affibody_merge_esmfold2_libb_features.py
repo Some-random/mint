@@ -66,22 +66,28 @@ def _bundle(value: float) -> dict[str, np.ndarray]:
     return result
 
 
-def _write_source_tree(tmp_path, num_shards: int = 2):
-    feature_root = tmp_path / "esmfold2_libb_features_test"
+def _write_source_tree(
+    tmp_path,
+    num_shards: int = 2,
+    profile: extraction.DatasetProfile = extraction.LIBB_PROFILE,
+):
+    feature_root = tmp_path / f"{profile.output_prefix}test"
     feature_root.mkdir(mode=0o700)
     payload = {
-        "schema_version": extraction.ROW_MANIFEST_SCHEMA,
+        "schema_version": profile.row_manifest_schema,
         "rows": _raw_rows(),
     }
     row_manifest = tmp_path / "rows.json"
     row_manifest.write_text(json.dumps(payload), encoding="utf-8")
-    canonical_rows = extraction._validate_rows(payload["rows"], _expectations())
+    canonical_rows = extraction._validate_rows(
+        payload["rows"], _expectations(), profile=profile
+    )
     run_contract = {
-        "schema_version": extraction.SCHEMA_VERSION,
+        "schema_version": profile.feature_schema,
         "row_manifest": {
             "path": str(row_manifest),
             "sha256": extraction._sha256_file(row_manifest),
-            "schema_version": extraction.ROW_MANIFEST_SCHEMA,
+            "schema_version": profile.row_manifest_schema,
             "row_count": len(canonical_rows),
             "train_rows": 2,
             "eval_rows": 1,
@@ -145,6 +151,7 @@ def _write_source_tree(tmp_path, num_shards: int = 2):
                 run_hash,
                 shard_index,
                 chunk_index,
+                profile.feature_schema,
             )
             inventory.append(
                 {
@@ -157,7 +164,7 @@ def _write_source_tree(tmp_path, num_shards: int = 2):
                 }
             )
         completion = {
-            "schema_version": extraction.SCHEMA_VERSION,
+            "schema_version": profile.feature_schema,
             "run_contract_sha256": run_hash,
             "shard_index": shard_index,
             "num_shards": num_shards,
@@ -203,3 +210,22 @@ def test_merge_requires_every_expected_shard_complete_manifest(tmp_path):
         merge._preflight_merge(
             feature_root, row_manifest, rows, expected_num_shards=2
         )
+
+
+def test_liba_merge_accepts_explicit_64_shards_and_publishes_liba_schema(tmp_path):
+    feature_root, row_manifest, rows = _write_source_tree(
+        tmp_path,
+        num_shards=64,
+        profile=extraction.LIBA_PROFILE,
+    )
+    plan = merge._preflight_merge(
+        feature_root,
+        row_manifest,
+        rows,
+        expected_num_shards=64,
+        profile=extraction.LIBA_PROFILE,
+    )
+    merged = merge._publish_merge(feature_root, rows, plan)
+    completion = json.loads((merged / "merge_complete.json").read_text())
+    assert completion["schema_version"] == merge.LIBA_MERGE_SCHEMA_VERSION
+    assert completion["num_shards"] == 64

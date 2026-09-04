@@ -27,6 +27,15 @@ SMALL_EXPECTED = {
     "eval_unique_chain2": 2,
 }
 
+SMALL_REVISED_EXPECTED = {
+    **SMALL_EXPECTED,
+    "eval": 3,
+    "eval_positive": 2,
+    "total": 6,
+    "eval_unique_chain1": 3,
+    "eval_unique_chain2": 3,
+}
+
 
 def _hash(value):
     return hashlib.sha256(value.encode("ascii")).hexdigest()
@@ -125,6 +134,19 @@ def _write_source(tmp_path, source):
     return source_path, manifest_path
 
 
+def _corrected_panel(source):
+    panel = source.loc[
+        source["source_kind"].eq("retention") & source["library"].eq("LibB"),
+        list(rows.CORRECTED_EVALUATION_COLUMNS),
+    ].copy()
+    # ``measurement_missing`` is intentionally not part of the provider-panel
+    # schema; complete all direct outcomes through the two authoritative fields.
+    index = panel["target_retention"].eq("")
+    panel.loc[index, "target_retention"] = "80.0"
+    panel.loc[index, "target_binder"] = "1"
+    return panel
+
+
 def test_build_tables_uses_exact_upstream_flag_and_separates_all_labels():
     source = _small_source()
     extractor, training, evaluation = rows.build_tables(source, expected=SMALL_EXPECTED)
@@ -185,6 +207,46 @@ def test_build_tables_uses_exact_upstream_flag_and_separates_all_labels():
     rows.assert_extractor_rows_are_label_free(extractor)
 
 
+def test_corrected_panel_adds_only_the_missing_outcome_and_preserves_identities():
+    source = _small_source()
+    corrected = _corrected_panel(source)
+    updated = rows.apply_corrected_evaluation_panel(source, corrected)
+    extractor, training, evaluation = rows.build_tables(
+        updated, expected=SMALL_REVISED_EXPECTED
+    )
+
+    assert len(extractor) == 6
+    assert len(training) == 3
+    assert len(evaluation) == 3
+    assert evaluation["target_binder"].value_counts().to_dict() == {"1": 2, "0": 1}
+    missing_pair = source.loc[
+        source["source_kind"].eq("retention")
+        & source["measurement_missing"].eq("1"),
+        "pair_uid",
+    ].item()
+    assert missing_pair in set(evaluation["row_id"])
+    identity_columns = [
+        "pair_uid",
+        "peptide_uid",
+        "affibody_uid",
+        "chain1_smart_hla_linker_peptide_sequence",
+        "chain2_affibody_sequence",
+        "sequence_pair_sha256",
+    ]
+    pd.testing.assert_frame_equal(
+        source[identity_columns].reset_index(drop=True),
+        updated[identity_columns].reset_index(drop=True),
+    )
+
+
+def test_corrected_panel_rejects_any_sequence_identity_change():
+    source = _small_source()
+    corrected = _corrected_panel(source)
+    corrected.loc[corrected.index[0], "chain2_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="changed stable identity/sequence"):
+        rows.apply_corrected_evaluation_panel(source, corrected)
+
+
 def test_extractor_recursive_guard_rejects_nested_outcomes_and_selection_fields():
     with pytest.raises(ValueError, match="forbidden term"):
         rows.assert_extractor_payload_is_label_free(
@@ -242,10 +304,20 @@ def test_run_writes_three_disjoint_private_artifacts_and_label_free_manifest(
     tmp_path, monkeypatch
 ):
     source_path, source_manifest_path = _write_source(tmp_path, _small_source())
+    corrected_panel_path = tmp_path / "corrected_panel.csv"
+    corrected_manifest_path = tmp_path / "corrected_manifest.json"
+    corrected_panel = _corrected_panel(_small_source())
+    corrected_panel.to_csv(corrected_panel_path, index=False)
+    corrected_manifest_path.write_text("{}", encoding="utf-8")
     extractor_dir = tmp_path / "extractor"
     training_dir = tmp_path / "training"
     evaluation_dir = tmp_path / "evaluation"
-    monkeypatch.setattr(rows, "EXPECTED", dict(SMALL_EXPECTED))
+    monkeypatch.setattr(rows, "EXPECTED", dict(SMALL_REVISED_EXPECTED))
+    monkeypatch.setattr(
+        rows,
+        "load_corrected_evaluation_panel",
+        lambda *args: (corrected_panel, {"provider_correction_panel_sha256": "a" * 64}),
+    )
     monkeypatch.setattr(
         rows, "validate_private_output_path", lambda path, repo_root=rows.REPO_ROOT: Path(path).resolve()
     )
@@ -254,6 +326,8 @@ def test_run_writes_three_disjoint_private_artifacts_and_label_free_manifest(
         Namespace(
             cache_rows=source_path,
             cache_rows_manifest=source_manifest_path,
+            corrected_evaluation_panel=corrected_panel_path,
+            corrected_evaluation_manifest=corrected_manifest_path,
             extractor_output_dir=extractor_dir,
             training_output_dir=training_dir,
             evaluation_output_dir=evaluation_dir,
@@ -322,22 +396,33 @@ def test_real_private_cache_reproduces_published_contract_if_present():
     if not source_path.is_file():
         pytest.skip("private canonical cache is not available")
 
-    extractor, training, evaluation = rows.build_tables(
-        rows.read_string_csv(source_path)
+    corrected_path = (
+        rows.REPO_ROOT
+        / "private_data/derived/retention_panel_provider_revision_2026-09-03_v2/libb_evaluation_panel.csv"
     )
+    corrected_manifest = corrected_path.with_name("manifest.json")
+    if not (corrected_path.is_file() and corrected_manifest.is_file()):
+        pytest.skip("corrected private LibB panel is not available")
+    corrected, _ = rows.load_corrected_evaluation_panel(
+        corrected_path, corrected_manifest
+    )
+    source = rows.apply_corrected_evaluation_panel(
+        rows.read_string_csv(source_path), corrected
+    )
+    extractor, training, evaluation = rows.build_tables(source)
 
-    assert len(extractor) == 30767
-    assert extractor["row_index"].tolist() == list(range(30767))
+    assert len(extractor) == 30768
+    assert extractor["row_index"].tolist() == list(range(30768))
     assert extractor["split"].value_counts().to_dict() == {
         "train": 30648,
-        "eval": 119,
+        "eval": 120,
     }
     assert training["weak_label"].value_counts().to_dict() == {
         "1": 23725,
         "0": 6923,
     }
     assert evaluation["target_binder"].value_counts().to_dict() == {
-        "1": 60,
+        "1": 61,
         "0": 59,
     }
     train = extractor.loc[extractor.split.eq("train")]

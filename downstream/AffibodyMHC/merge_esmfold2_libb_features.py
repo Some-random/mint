@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Validate and merge all eight canonical LibB ESMFold2 feature shards.
+"""Validate and merge all canonical LibA or LibB ESMFold2 feature shards.
 
 The merge is label-free.  It requires every completed modulo shard, verifies
-that their run contracts are identical, verifies that the 30,767 canonical
-row indices and opaque row IDs occur exactly once, and validates every chunk
+that their run contracts are identical, verifies that all canonical row
+indices and opaque row IDs occur exactly once, and validates every chunk
 checksum and tensor contract while copying it.  It then atomically publishes
 three uncompressed ``.npy`` arrays that can be memory-mapped by downstream
 readouts:
 
-* ``distogram_probabilities.npy``: ``[30767, 9, 58, 64]`` float16;
-* ``pair_states_symmetric.npy``: ``[30767, 9, 58, 256]`` float16;
-* ``single_inputs.npy``: ``[30767, 67, 451]`` float16.
+* ``distogram_probabilities.npy``: ``[N, 9, 58, 64]`` float16;
+* ``pair_states_symmetric.npy``: ``[N, 9, 58, 256]`` float16;
+* ``single_inputs.npy``: ``[N, 67, 451]`` float16.
 
 ``metadata.csv`` contains only ``row_index,row_id,split``.  No weak-selection
 or direct-retention label file is opened or copied by this program.
@@ -40,6 +40,11 @@ from downstream.AffibodyMHC import extract_esmfold2_libb_features as extraction
 
 
 MERGE_SCHEMA_VERSION = "esmfold2-libb-feature-merge-v1"
+LIBA_MERGE_SCHEMA_VERSION = "esmfold2-liba-feature-merge-v1"
+MERGE_SCHEMA_BY_LIBRARY = {
+    "LibA": LIBA_MERGE_SCHEMA_VERSION,
+    "LibB": MERGE_SCHEMA_VERSION,
+}
 EXPECTED_NUM_SHARDS = 8
 MERGED_DIRECTORY_NAME = "merged"
 METADATA_COLUMNS = ("row_index", "row_id", "split")
@@ -60,6 +65,7 @@ class MergePlan:
     run_contract_sha256: str
     chunk_sources: tuple[ChunkSource, ...]
     shard_completion_paths: tuple[Path, ...]
+    profile: extraction.DatasetProfile
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -68,7 +74,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--feature-root",
         type=Path,
         required=True,
-        help="Dedicated esmfold2_libb_features_* extraction directory.",
+        help="Dedicated esmfold2_liba_features_* or esmfold2_libb_features_* directory.",
     )
     parser.add_argument(
         "--row-manifest",
@@ -80,6 +86,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--validate-only",
         action="store_true",
         help="Require and fully validate an already published merged directory.",
+    )
+    parser.add_argument(
+        "--num-shards",
+        type=int,
+        default=EXPECTED_NUM_SHARDS,
+        help="Exact expected shard count; defaults to the historical eight-shard run.",
     )
     return parser.parse_args(argv)
 
@@ -116,11 +128,12 @@ def _validate_run_contract(
     row_manifest: Path,
     rows: Sequence[extraction.CanonicalRow],
     expected_num_shards: int,
+    profile: extraction.DatasetProfile = extraction.LIBB_PROFILE,
 ) -> None:
     observed_hash = extraction._canonical_json_sha256(run_contract)
     if run_contract_sha256 != observed_hash:
         raise ValueError("shard run-contract hash does not match its payload")
-    if run_contract.get("schema_version") != extraction.SCHEMA_VERSION:
+    if run_contract.get("schema_version") != profile.feature_schema:
         raise ValueError("unexpected extraction run-contract schema")
     manifest_contract = run_contract.get("row_manifest")
     if not isinstance(manifest_contract, Mapping):
@@ -129,7 +142,7 @@ def _validate_run_contract(
     eval_count = sum(row.split == "eval" for row in rows)
     expected_manifest_fields = {
         "sha256": extraction._sha256_file(row_manifest),
-        "schema_version": extraction.ROW_MANIFEST_SCHEMA,
+        "schema_version": profile.row_manifest_schema,
         "row_count": len(rows),
         "train_rows": train_count,
         "eval_rows": eval_count,
@@ -167,9 +180,10 @@ def _validate_chunk_metadata_membership(
     shard_index: int,
     chunk_index: int,
     artifact_name: str,
+    feature_schema: str = extraction.SCHEMA_VERSION,
 ) -> None:
     expected = {
-        "schema_version": extraction.SCHEMA_VERSION,
+        "schema_version": feature_schema,
         "run_contract_sha256": run_contract_sha256,
         "shard_index": shard_index,
         "chunk_index": chunk_index,
@@ -191,6 +205,7 @@ def _preflight_merge(
     row_manifest: Path,
     rows: Sequence[extraction.CanonicalRow],
     expected_num_shards: int = EXPECTED_NUM_SHARDS,
+    profile: extraction.DatasetProfile = extraction.LIBB_PROFILE,
 ) -> MergePlan:
     expected_names = {
         f"shard-{index:05d}-of-{expected_num_shards:05d}"
@@ -237,6 +252,7 @@ def _preflight_merge(
             row_manifest,
             rows,
             expected_num_shards,
+            profile,
         )
         if reference_contract is None:
             reference_contract = run_contract
@@ -261,7 +277,7 @@ def _preflight_merge(
 
         chunk_rows = list(extraction._chunks(shard_rows))
         expected_completion = {
-            "schema_version": extraction.SCHEMA_VERSION,
+            "schema_version": profile.feature_schema,
             "run_contract_sha256": run_hash,
             "shard_index": shard_index,
             "num_shards": expected_num_shards,
@@ -292,6 +308,7 @@ def _preflight_merge(
                 shard_index,
                 chunk_index,
                 artifact_path.name,
+                profile.feature_schema,
             )
             expected_inventory = {
                 "chunk_index": chunk_index,
@@ -336,6 +353,7 @@ def _preflight_merge(
         run_contract_sha256=reference_hash,
         chunk_sources=tuple(sources),
         shard_completion_paths=tuple(completion_paths),
+        profile=profile,
     )
 
 
@@ -386,6 +404,7 @@ def _copy_chunks_to_memmaps(
                 plan.run_contract_sha256,
                 source.shard_index,
                 source.chunk_index,
+                plan.profile.feature_schema,
             )
             indices = np.asarray(
                 [row.row_index for row in source.expected_rows], dtype=np.int64
@@ -453,7 +472,7 @@ def _validate_merged_output(
     if not isinstance(completion, Mapping):
         raise ValueError("merge_complete.json must contain an object")
     expected_completion = {
-        "schema_version": MERGE_SCHEMA_VERSION,
+        "schema_version": MERGE_SCHEMA_BY_LIBRARY[plan.profile.library],
         "run_contract_sha256": plan.run_contract_sha256,
         "num_shards": len(plan.shard_completion_paths),
         "row_count": len(rows),
@@ -546,7 +565,7 @@ def _publish_merge(
         "sha256": extraction._sha256_file(metadata_path),
     }
     completion = {
-        "schema_version": MERGE_SCHEMA_VERSION,
+        "schema_version": MERGE_SCHEMA_BY_LIBRARY[plan.profile.library],
         "completed_utc": extraction._utc_now(),
         "run_contract_sha256": plan.run_contract_sha256,
         "num_shards": len(plan.shard_completion_paths),
@@ -584,12 +603,17 @@ def _publish_merge(
 
 
 def _run(args: argparse.Namespace) -> None:
-    feature_root = extraction._validate_private_output_root(args.feature_root)
-    extraction._ensure_private_directory(feature_root)
+    if args.num_shards < 1:
+        raise ValueError("num-shards must be positive")
     row_manifest = args.row_manifest.resolve()
     if row_manifest.is_symlink() or not row_manifest.is_file():
         raise FileNotFoundError(f"row manifest must be a real file: {row_manifest}")
-    _, rows = extraction._load_row_manifest(row_manifest)
+    payload, rows = extraction._load_row_manifest(row_manifest)
+    profile = extraction._profile_for_manifest(payload)
+    feature_root = extraction._validate_private_output_root(
+        args.feature_root, output_prefix=profile.output_prefix
+    )
+    extraction._ensure_private_directory(feature_root)
 
     lock_handle = _open_private_lock(feature_root / ".merge.lock")
     try:
@@ -597,7 +621,13 @@ def _run(args: argparse.Namespace) -> None:
             fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
             raise RuntimeError("another merge process owns this feature root") from exc
-        plan = _preflight_merge(feature_root, row_manifest, rows)
+        plan = _preflight_merge(
+            feature_root,
+            row_manifest,
+            rows,
+            expected_num_shards=args.num_shards,
+            profile=profile,
+        )
         final_directory = feature_root / MERGED_DIRECTORY_NAME
         if args.validate_only:
             _validate_merged_output(final_directory, rows, plan)

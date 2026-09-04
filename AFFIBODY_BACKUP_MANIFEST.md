@@ -1,59 +1,108 @@
 # Affibody project recovery manifest
 
-Initial backup date: 2026-09-01 UTC
-Latest source/report update: 2026-09-02 UTC
+Frozen backup date: 2026-09-04 UTC
 
-This repository contains the complete reusable Affibody modeling source,
-configuration, tests, and the original MINT history. The branch
-`backup/affibody-work-2026-09-01` is the recovery branch.
+This repository preserves the reusable Affibody modeling source, configuration,
+tests, and the original MINT history. The frozen recovery branch is
+`backup/affibody-work-2026-09-04`; the matching release tag is
+`affibody-backup-2026-09-04`.
 
-Three curated narrative reports are tracked as normal Git objects because they
-were prepared explicitly for public-facing review:
+The backup is private because it contains unpublished experimental material.
+Its intended destination is the standalone private repository
+`Some-random/mint-affibody-private`. The public `Some-random/mint` fork is not a
+backup destination and must not receive the private archives or new reports.
+
+## Reports tracked in Git
+
+The following curated reports are stored as ordinary Git objects:
 
 - `private_data/affibody_modeling_report_public_2026-08-17.md`;
 - `private_data/esmfold2_libb_report_public_2026-09-01.md`;
-- `private_data/affibody_weak_label_report_public_2026-09-02.md`.
+- `private_data/affibody_weak_label_report_public_2026-09-02.md`;
+- `private_data/affibody_structure_model_report_public_2026-09-03.md`;
+- `private_data/affibody_liba_structure_model_report_public_2026-09-04.md`;
+- `private_data/affibody_liba_candidate_selection_report_public_2026-09-04.md`.
 
-The 2026-09-02 source update also adds the frozen-MINT intermediate-layer
-sweep, PNU weak-label training, aggregation, convergence checks, and their
-focused tests. Row-level data, generated predictions, model features, and all
-other private experimental material remain excluded from Git.
+`data_revision_audit.md` records the provider-data corrections and identifies
+which older results are historical snapshots. In particular, older documents
+that say LibB has 119 measured pairs predate the corrected 120-pair matrix.
 
-The bulk 2026-09-01 private snapshot is stored as release assets rather than
-normal Git objects:
+## Release assets
 
-| Asset | Size | SHA-256 |
-|---|---:|---|
-| `affibody_private_materials_2026-09-01.tar.zst` | 398,416,113 bytes | `49b8a02515ae5b365ee17634f383dd55ce511461cba0784a041f1b10c9107f22` |
-| `Affibody coevolution dataset.zip` | 1,026,267,412 bytes | `d91914a20c02aef78970af833f6443f47355dea8a21972e0c5609f2f2f3a4e3a` |
+The private release attached to the matching tag is the recovery unit. Its
+`SHA256SUMS` file gives the authoritative checksum for every asset.
 
-The private-materials archive contains 1,597 files (1,240,104,960 bytes before
-compression): the reports as they existed on 2026-09-01, plans, transcripts,
-presentations, the updated sequence archive, the reference PDB, experiment
-directories, compact derived data, and structure-analysis manifests/results.
+| Asset | Purpose |
+|---|---|
+| `Affibody coevolution dataset.zip` | Original provider source archive, retained byte-for-byte and treated as opaque because it contains an unusual root-directory entry. |
+| `affibody_private_materials_2026-09-01.tar.zst` | Verified legacy private snapshot covering the work completed through 2026-09-01. |
+| `affibody_private_current_2026-09-04.tar.zst` | Current compact inputs, audits, reports, corrected LibB results, LibA sequence/structure results, trained small readout heads, and final handoffs. |
+| `affibody_liba_exhaustive_scores_2026-09-04.tar.zst` | LibA selection-missed universe and the canonical exhaustive score tables used to build the prospective handoff. |
+| `mint-affibody-private-2026-09-04.bundle` | Self-contained Git bundle of all refs in the frozen repository. |
+| `SHA256SUMS` | SHA-256 checksums for all assets above except itself. |
 
-The following bulk objects are deliberately omitted because they are
-downloadable or reproducible from the retained code, inputs, manifests, and
-configs:
+Both newly assembled compressed archives contain an internal
+`BACKUP_CONTENTS.md` and `MANIFEST.sha256`. The archives use a single relative
+top-level directory. They are verified by listing, decompression testing,
+extraction into fresh temporary directories, and `sha256sum -c` against their
+internal manifests. Release assets are also downloaded again after upload and
+compared with the local checksums.
 
-- ESMFold2 checkpoint and root model checkpoints;
-- the full ESMFold2, MINT weak-cache, and MINT late-round feature tensors;
-- bulk OpenFold3 model outputs;
-- virtual environments, package caches, temporary runs, and pytest debris.
+## Canonical 2026-09-04 LibA artifacts
 
-To verify downloaded assets:
+- The wet-lab handoff is
+  `private_data/prospective/liba_wetlab_candidate_handoff_v3/`. Earlier handoff
+  versions and all `.draft.md` files are superseded.
+- The generic selector and compiled handoff inputs are the `v2` directories.
+- The structure comparison uses
+  `esmfold2_liba_replicated_cv_fast_v1`, its aggregate, the 25 final small
+  readout heads, the sealed sequence-plus-ESMFold2 comparison, and
+  `esmfold2_liba_candidate_scale_gate_v2`. The slow-loader CV and gate `v1` are
+  superseded.
+- The structure gate failed, so there is no exhaustive LibA structure-model
+  score archive. The prospective candidate handoff uses the locked sequence
+  models.
+
+## Deliberate omissions
+
+The following are omitted because they are redundant, superseded, temporary,
+downloadable, or reproducible from retained inputs, code, configs, model heads,
+and provenance receipts:
+
+- every `_DO_NOT_BACKUP*`, `.staging-*`, draft, smoke, aborted, and superseded
+  directory;
+- full ESMFold2, MINT, RDE-PPI, and StaB-ddG feature tensors and per-shard array
+  caches;
+- backbone checkpoints, root model checkpoints, and bulk OpenFold outputs;
+- virtual environments, package caches, logs, locks, and pytest debris;
+- redundant per-peptide score partitions when an identical canonical merged
+  table is retained;
+- the superseded LibA handoff/selector/compiler versions and the superseded
+  LibB single-tolerance release driver;
+- the incidental 52-byte `uv.lock` placeholder.
+
+Small trained readout heads are retained where they are part of a final model
+contract. Feature-extraction receipts, exact hashes, configs, and merge records
+are retained even when multi-gigabyte feature arrays are omitted.
+
+## Restore and verification
+
+Verify the downloaded release in one directory:
 
 ```bash
-sha256sum affibody_private_materials_2026-09-01.tar.zst
-sha256sum 'Affibody coevolution dataset.zip'
+sha256sum -c SHA256SUMS
+unzip -tqq 'Affibody coevolution dataset.zip'
+zstd -t affibody_private_materials_2026-09-01.tar.zst
+zstd -t affibody_private_current_2026-09-04.tar.zst
+zstd -t affibody_liba_exhaustive_scores_2026-09-04.tar.zst
+git bundle verify mint-affibody-private-2026-09-04.bundle
 ```
 
-To inspect or restore the compressed private archive:
+Restore the Git repository with:
 
 ```bash
-tar --zstd -tf affibody_private_materials_2026-09-01.tar.zst
-tar --zstd -xf affibody_private_materials_2026-09-01.tar.zst
+git clone mint-affibody-private-2026-09-04.bundle mint-affibody
 ```
 
-The repository and both release assets contain unpublished experimental
-material and must remain private.
+Extract either compressed archive only into a newly created directory after
+inspecting its member list. Do not blindly extract the original provider ZIP.

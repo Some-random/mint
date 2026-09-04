@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Extract label-free ESMFold2 trunk features for the canonical LibB rows.
+"""Extract label-free ESMFold2 trunk features for canonical Affibody rows.
 
 The input is a separately prepared, label-free JSON manifest.  This program
 refuses manifests containing retention, binder, weak-label, enrichment, or
 selection-count fields; it never opens either training-label or evaluation-
-label files.  The fixed canonical contract is 30,648 training rows plus 119
-evaluation rows under the strict identity-cold split.
+label files.  Two explicit, versioned dataset profiles are accepted: the
+historical LibB contract and the LibA strict identity-cold contract.  The
+profile is inferred from the label-free row-manifest schema; it cannot be
+selected by a label-bearing input.
 
 Each process owns one persistent ESMFold2 model and extracts rows whose
 ``row_index % num_shards == shard_index``.  Full pair tensors are never written.
@@ -65,6 +67,9 @@ OUTPUT_PARENT = PRIVATE_ROOT / "derived"
 OUTPUT_PREFIX = "esmfold2_libb_features_"
 SCHEMA_VERSION = "esmfold2-libb-feature-shard-v1"
 ROW_MANIFEST_SCHEMA = "esmfold2-libb-canonical-rows-v1"
+LIBA_OUTPUT_PREFIX = "esmfold2_liba_features_"
+LIBA_SCHEMA_VERSION = "esmfold2-liba-feature-shard-v1"
+LIBA_ROW_MANIFEST_SCHEMA = "esmfold2-liba-canonical-rows-v1"
 EXPECTED_CHECKPOINT_REVISION = "bce015efb23b5dc604842d0ab5c2bbb02c7bd3ee"
 EXPECTED_TRANSFORMERS_VERSION = "5.16.1"
 EXPECTED_TRAIN_ROWS = 30_648
@@ -124,6 +129,48 @@ class DatasetExpectations:
     train_chain2: int = EXPECTED_UNIQUE_COUNTS["train"]["chain2"]
     eval_chain1: int = EXPECTED_UNIQUE_COUNTS["eval"]["chain1"]
     eval_chain2: int = EXPECTED_UNIQUE_COUNTS["eval"]["chain2"]
+
+
+@dataclass(frozen=True)
+class DatasetProfile:
+    """Label-free extraction contract for one library."""
+
+    library: str
+    row_manifest_schema: str
+    feature_schema: str
+    output_prefix: str
+    expectations: DatasetExpectations
+    affibody_code_positions_1_based: tuple[int, ...]
+
+
+LIBB_PROFILE = DatasetProfile(
+    library="LibB",
+    row_manifest_schema=ROW_MANIFEST_SCHEMA,
+    feature_schema=SCHEMA_VERSION,
+    output_prefix=OUTPUT_PREFIX,
+    expectations=DatasetExpectations(),
+    affibody_code_positions_1_based=(6, 10, 13, 14, 17),
+)
+LIBA_PROFILE = DatasetProfile(
+    library="LibA",
+    row_manifest_schema=LIBA_ROW_MANIFEST_SCHEMA,
+    feature_schema=LIBA_SCHEMA_VERSION,
+    output_prefix=LIBA_OUTPUT_PREFIX,
+    expectations=DatasetExpectations(
+        train_rows=22_542,
+        eval_rows=108,
+        train_chain1=216,
+        train_chain2=13_590,
+        eval_chain1=9,
+        eval_chain2=12,
+    ),
+    # Displayed-sequence positions.  Revised crystal-aligned labels are +2,
+    # but no +2 shift is applied to sequence indices or model tokens.
+    affibody_code_positions_1_based=(13, 17, 27, 31),
+)
+DATASET_PROFILES_BY_SCHEMA = {
+    profile.row_manifest_schema: profile for profile in (LIBA_PROFILE, LIBB_PROFILE)
+}
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -212,6 +259,20 @@ def _read_json(path: Path) -> Any:
         return json.load(handle)
 
 
+def _profile_for_manifest(payload: Mapping[str, Any]) -> DatasetProfile:
+    """Resolve the only dataset-dependent settings from a label-free schema."""
+
+    schema = payload.get("schema_version")
+    profile = DATASET_PROFILES_BY_SCHEMA.get(str(schema))
+    if profile is None:
+        raise ValueError(
+            "unsupported row-manifest schema {!r}; expected one of {}".format(
+                schema, sorted(DATASET_PROFILES_BY_SCHEMA)
+            )
+        )
+    return profile
+
+
 def _normalize_field_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
 
@@ -258,7 +319,9 @@ def _reject_label_like_keys(value: Any, location: str = "$") -> None:
             _reject_label_like_keys(child, f"{location}[{index}]")
 
 
-def _validate_private_output_root(path: Path) -> Path:
+def _validate_private_output_root(
+    path: Path, output_prefix: str = OUTPUT_PREFIX
+) -> Path:
     expected_parent = OUTPUT_PARENT.resolve()
     # ``absolute`` normalizes ``..`` without following the final component's
     # symlink.  Both lexical and resolved parents are checked so a symlink
@@ -268,8 +331,8 @@ def _validate_private_output_root(path: Path) -> Path:
         raise ValueError(
             f"output must be one dedicated direct child of {expected_parent}"
         )
-    if not absolute.name.startswith(OUTPUT_PREFIX) or absolute.name == OUTPUT_PREFIX:
-        raise ValueError(f"output directory name must begin with {OUTPUT_PREFIX!r}")
+    if not absolute.name.startswith(output_prefix) or absolute.name == output_prefix:
+        raise ValueError(f"output directory name must begin with {output_prefix!r}")
     if absolute.is_symlink():
         raise ValueError("output directory must not be a symlink")
     resolved = absolute.resolve()
@@ -323,7 +386,9 @@ def _open_private_lock(path: Path):
     return os.fdopen(descriptor, "a+")
 
 
-def _validate_row_mapping(raw: Mapping[str, Any]) -> CanonicalRow:
+def _validate_row_mapping(
+    raw: Mapping[str, Any], profile: DatasetProfile = LIBB_PROFILE
+) -> CanonicalRow:
     unknown = set(raw).difference(ALLOWED_ROW_KEYS)
     required = {
         "row_index",
@@ -350,8 +415,8 @@ def _validate_row_mapping(raw: Mapping[str, Any]) -> CanonicalRow:
     split = str(raw["split"])
     if split not in {"train", "eval"}:
         raise ValueError(f"row {row_index}: split must be 'train' or 'eval'")
-    if "library" in raw and raw["library"] != "LibB":
-        raise ValueError(f"row {row_index}: expected library LibB")
+    if "library" in raw and raw["library"] != profile.library:
+        raise ValueError(f"row {row_index}: expected library {profile.library}")
 
     chain1 = str(raw["chain1_sequence"])
     chain2 = str(raw["chain2_sequence"])
@@ -377,8 +442,11 @@ def _validate_row_mapping(raw: Mapping[str, Any]) -> CanonicalRow:
     affibody_code = raw.get("affibody_design_code")
     if affibody_code is not None:
         affibody_code = str(affibody_code)
-        observed = "".join(chain2[position - 1] for position in (6, 10, 13, 14, 17))
-        if len(affibody_code) != 5 or affibody_code != observed:
+        observed = "".join(
+            chain2[position - 1]
+            for position in profile.affibody_code_positions_1_based
+        )
+        if len(affibody_code) != len(profile.affibody_code_positions_1_based) or affibody_code != observed:
             raise ValueError(f"row {row_index}: Affibody design code mapping mismatch")
 
     return CanonicalRow(
@@ -393,12 +461,15 @@ def _validate_row_mapping(raw: Mapping[str, Any]) -> CanonicalRow:
 
 def _validate_rows(
     raw_rows: Sequence[Mapping[str, Any]],
-    expectations: DatasetExpectations = DatasetExpectations(),
+    expectations: DatasetExpectations | None = None,
+    profile: DatasetProfile = LIBB_PROFILE,
 ) -> list[CanonicalRow]:
+    if expectations is None:
+        expectations = profile.expectations
     expected_total = expectations.train_rows + expectations.eval_rows
     if len(raw_rows) != expected_total:
         raise ValueError(f"expected {expected_total} canonical rows, found {len(raw_rows)}")
-    rows = [_validate_row_mapping(raw) for raw in raw_rows]
+    rows = [_validate_row_mapping(raw, profile=profile) for raw in raw_rows]
     rows.sort(key=lambda row: row.row_index)
     observed_indices = [row.row_index for row in rows]
     if observed_indices != list(range(expected_total)):
@@ -455,23 +526,26 @@ def _validate_rows(
 
 def _load_row_manifest(
     path: Path,
-    expectations: DatasetExpectations = DatasetExpectations(),
+    expectations: DatasetExpectations | None = None,
+    profile: DatasetProfile | None = None,
 ) -> tuple[dict[str, Any], list[CanonicalRow]]:
     payload = _read_json(path)
     if not isinstance(payload, dict):
         raise ValueError("row manifest must be one JSON object")
     _reject_label_like_keys(payload)
-    if payload.get("schema_version") != ROW_MANIFEST_SCHEMA:
+    inferred_profile = _profile_for_manifest(payload)
+    if profile is not None and inferred_profile != profile:
         raise ValueError(
-            f"expected row-manifest schema {ROW_MANIFEST_SCHEMA!r}, "
-            f"found {payload.get('schema_version')!r}"
+            f"row-manifest schema selects {inferred_profile.library}, "
+            f"not requested {profile.library}"
         )
+    profile = inferred_profile
     raw_rows = payload.get("rows")
     if not isinstance(raw_rows, list):
         raise ValueError("row manifest must contain a rows list")
     if not all(isinstance(row, dict) for row in raw_rows):
         raise ValueError("every row-manifest entry must be an object")
-    return payload, _validate_rows(raw_rows, expectations)
+    return payload, _validate_rows(raw_rows, expectations, profile=profile)
 
 
 def _partition_rows(
@@ -664,6 +738,7 @@ def _write_chunk(
     run_contract_sha256: str,
     shard_index: int,
     chunk_index: int,
+    schema_version: str = SCHEMA_VERSION,
 ) -> dict[str, Any]:
     if artifact_path.exists() or metadata_path.exists():
         raise FileExistsError("refusing to overwrite an existing chunk artifact")
@@ -672,7 +747,7 @@ def _write_chunk(
     _atomic_npz_dump(artifact_path, arrays)
     artifact_sha256 = _sha256_file(artifact_path)
     payload = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": schema_version,
         "created_utc": _utc_now(),
         "run_contract_sha256": run_contract_sha256,
         "shard_index": shard_index,
@@ -703,6 +778,7 @@ def _load_validated_chunk(
     run_contract_sha256: str,
     shard_index: int,
     chunk_index: int,
+    schema_version: str = SCHEMA_VERSION,
 ) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
     if artifact_path.exists() != metadata_path.exists():
         raise RuntimeError(
@@ -712,7 +788,7 @@ def _load_validated_chunk(
         raise FileNotFoundError(f"chunk {chunk_index} does not exist")
     metadata = _read_json(metadata_path)
     required_pairs = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": schema_version,
         "run_contract_sha256": run_contract_sha256,
         "shard_index": shard_index,
         "chunk_index": chunk_index,
@@ -754,6 +830,7 @@ def _validate_chunk(
     run_contract_sha256: str,
     shard_index: int,
     chunk_index: int,
+    schema_version: str = SCHEMA_VERSION,
 ) -> dict[str, Any]:
     metadata, _ = _load_validated_chunk(
         artifact_path,
@@ -762,6 +839,7 @@ def _validate_chunk(
         run_contract_sha256,
         shard_index,
         chunk_index,
+        schema_version,
     )
     return metadata
 
@@ -857,6 +935,7 @@ def _build_run_contract(
     num_shards: int,
     seed: int,
     cublas_workspace_config: str,
+    profile: DatasetProfile = LIBB_PROFILE,
 ) -> dict[str, Any]:
     source_files = {
         "extractor": Path(__file__).resolve(),
@@ -866,14 +945,24 @@ def _build_run_contract(
         / "downstream/AffibodyMHC/esmfold2_multichain_features.py",
     }
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": profile.feature_schema,
+        "dataset_profile": {
+            "library": profile.library,
+            "row_manifest_schema": profile.row_manifest_schema,
+            "output_prefix": profile.output_prefix,
+            "affibody_code_positions_1_based": list(
+                profile.affibody_code_positions_1_based
+            ),
+        },
         "row_manifest": {
             "path": str(row_manifest),
             "sha256": _sha256_file(row_manifest),
-            "schema_version": ROW_MANIFEST_SCHEMA,
-            "row_count": EXPECTED_TOTAL_ROWS,
-            "train_rows": EXPECTED_TRAIN_ROWS,
-            "eval_rows": EXPECTED_EVAL_ROWS,
+            "schema_version": profile.row_manifest_schema,
+            "row_count": (
+                profile.expectations.train_rows + profile.expectations.eval_rows
+            ),
+            "train_rows": profile.expectations.train_rows,
+            "eval_rows": profile.expectations.eval_rows,
         },
         "checkpoint": dict(checkpoint_contract),
         "source_sha256": {
@@ -970,14 +1059,17 @@ def _run(args: argparse.Namespace) -> None:
     workspace = _configure_determinism()
     checkpoint = args.checkpoint.resolve()
     row_manifest = args.row_manifest.resolve()
-    output_root = _validate_private_output_root(args.output_dir)
     if not checkpoint.is_dir():
         raise FileNotFoundError(checkpoint)
     if not row_manifest.is_file():
         raise FileNotFoundError(row_manifest)
 
     # The JSON is the only biological-data input opened by the extractor.
-    _, rows = _load_row_manifest(row_manifest)
+    manifest_payload, rows = _load_row_manifest(row_manifest)
+    profile = _profile_for_manifest(manifest_payload)
+    output_root = _validate_private_output_root(
+        args.output_dir, output_prefix=profile.output_prefix
+    )
     shard_rows = _partition_rows(rows, args.shard_index, args.num_shards)
     checkpoint_info = _checkpoint_contract(checkpoint)
     run_contract = _build_run_contract(
@@ -986,6 +1078,7 @@ def _run(args: argparse.Namespace) -> None:
         num_shards=args.num_shards,
         seed=args.seed,
         cublas_workspace_config=workspace,
+        profile=profile,
     )
     run_contract_sha256 = _canonical_json_sha256(run_contract)
 
@@ -1036,6 +1129,7 @@ def _run(args: argparse.Namespace) -> None:
                     run_contract_sha256,
                     args.shard_index,
                     chunk_index,
+                    profile.feature_schema,
                 )
             else:
                 missing.append(chunk_index)
@@ -1110,6 +1204,7 @@ def _run(args: argparse.Namespace) -> None:
                     run_contract_sha256,
                     args.shard_index,
                     chunk_index,
+                    profile.feature_schema,
                 )
                 print(
                     f"committed shard={args.shard_index} chunk={chunk_index} "
@@ -1129,6 +1224,7 @@ def _run(args: argparse.Namespace) -> None:
                 run_contract_sha256,
                 args.shard_index,
                 chunk_index,
+                profile.feature_schema,
             )
             validated_chunks.append(
                 {
@@ -1141,7 +1237,7 @@ def _run(args: argparse.Namespace) -> None:
                 }
             )
         completion = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": profile.feature_schema,
             "completed_utc": _utc_now(),
             "run_contract_sha256": run_contract_sha256,
             "shard_index": args.shard_index,

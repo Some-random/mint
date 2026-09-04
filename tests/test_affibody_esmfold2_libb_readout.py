@@ -13,6 +13,7 @@ import torch
 from downstream.AffibodyMHC.esmfold2_libb_readout import (
     MODEL_NAMES,
     EsmFold2LibBReadout,
+    EsmFold2PairReadout,
     FrozenFeatureStore,
     class_balanced_weights,
     class_weighted_binary_cross_entropy,
@@ -30,6 +31,10 @@ from downstream.AffibodyMHC.train_esmfold2_libb_readouts import (
 CONFIG_PATH = (
     REPO_ROOT
     / "downstream/AffibodyMHC/configs/esmfold2_libb_frozen_readouts_v1.json"
+)
+LIBA_CONFIG_PATH = (
+    REPO_ROOT
+    / "downstream/AffibodyMHC/configs/esmfold2_liba_frozen_readouts_v1.json"
 )
 OLD_FOLD_MEMBERSHIP = (
     REPO_ROOT
@@ -73,6 +78,20 @@ def test_locked_models_are_small_and_have_exact_parameter_counts():
         "full": 46433,
     }
     assert max(observed.values()) < 50_000
+
+
+def test_liba_config_and_training_sidecar_reconstruct_locked_double_cold_folds():
+    config = _read_config(LIBA_CONFIG_PATH)
+    labels_root = REPO_ROOT / "private_data/derived/esmfold2_liba_training_labels_v1"
+    base, membership = load_canonical_training_labels(
+        labels_root / "training_labels.csv",
+        labels_root / "manifest.json",
+        config,
+    )
+    assert config["dataset"]["library"] == "LibA"
+    assert len(base) == 22_542
+    assert len(membership) == 3 * 22_542
+    assert config["dataset"]["evaluation_rows"] == 108
 
 
 def test_training_cli_runs_directly_without_pythonpath(tmp_path):
@@ -138,7 +157,9 @@ def test_class_weighted_bce_uses_inverse_frequency_weights():
     torch.testing.assert_close(loss, torch.tensor(np.log(2.0), dtype=torch.float32))
 
 
-def _write_fake_cache(root: Path):
+def _write_fake_cache(
+    root: Path, schema_version: str = "esmfold2-libb-feature-merge-v1"
+):
     root.mkdir()
     metadata = root / "metadata.csv"
     metadata.write_text("row_index,row_id,split\n0,train-0,train\n1,eval-0,eval\n")
@@ -169,7 +190,7 @@ def _write_fake_cache(root: Path):
     (root / "merge_complete.json").write_text(
         json.dumps(
             {
-                "schema_version": "esmfold2-libb-feature-merge-v1",
+                "schema_version": schema_version,
                 "supervision_fields_read": [],
                 "row_count": 2,
                 "row_indices_sha256": hashlib.sha256(b"[0,1]").hexdigest(),
@@ -202,6 +223,14 @@ def test_store_requires_completed_label_free_manifest_and_validates_checksums(tm
         handle.write("2,tampered,eval\n")
     with pytest.raises(ValueError, match="metadata byte size"):
         FrozenFeatureStore.open(cache)
+
+
+def test_liba_merged_cache_schema_uses_the_same_pair_readout_contract(tmp_path):
+    cache = tmp_path / "liba-cache"
+    _write_fake_cache(cache, schema_version="esmfold2-liba-feature-merge-v1")
+    store = FrozenFeatureStore.open(cache)
+    assert store.row_ids == ("train-0", "eval-0")
+    assert EsmFold2LibBReadout is EsmFold2PairReadout
 
 
 @pytest.mark.skipif(not OLD_FOLD_MEMBERSHIP.is_file(), reason="canonical fold fixture absent")

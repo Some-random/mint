@@ -1,0 +1,148 @@
+{
+  "schema_version": "libb-structural-frozen-readouts-v1",
+  "purpose": "Native learned-projection frozen StaB-ddG-derived LibB readouts selected only on weak-label validation",
+  "protocol_config": "esmfold2_libb_frozen_readouts_v1.json",
+  "dataset": {
+    "rows": 30648,
+    "positive": 23725,
+    "negative": 6923,
+    "evaluation_rows": 120
+  },
+  "models": [
+    {
+      "name": "nonlinear_7site_control",
+      "source": "designed_sequence",
+      "views": []
+    },
+    {
+      "name": "stab_global",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "global_features",
+          "pooling": "identity"
+        }
+      ]
+    },
+    {
+      "name": "stab_designed_ordered",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "residue_features",
+          "pooling": "ordered_flatten",
+          "mask": "residue_mask"
+        }
+      ]
+    },
+    {
+      "name": "stab_designed_mean_max",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "residue_features",
+          "pooling": "mean_max",
+          "mask": "residue_mask"
+        }
+      ]
+    },
+    {
+      "name": "stab_global_plus_designed_ordered",
+      "source": "frozen_features",
+      "views": [
+        {
+          "array": "global_features",
+          "pooling": "identity"
+        },
+        {
+          "array": "residue_features",
+          "pooling": "ordered_flatten",
+          "mask": "residue_mask"
+        }
+      ]
+    }
+  ],
+  "expected_input_dimensions": {
+    "nonlinear_7site_control": 140,
+    "stab_global": 138,
+    "stab_designed_ordered": 1050,
+    "stab_designed_mean_max": 300,
+    "stab_global_plus_designed_ordered": 1188
+  },
+  "feature_archive_contract": {
+    "required_manifest": {
+      "schema_version": "libb-opaque-frozen-features-v1",
+      "extractor_schema_version": "stab-libb-current-pair-features-v4",
+      "template_context_schema_version": "stab-libb-assay-resolved-fragment-v1",
+      "supervision_fields_read": [],
+      "feature_semantics": {
+        "residue_order": [
+          "peptide_position_4",
+          "peptide_position_5",
+          "affibody_displayed_position_6_crystal_position_8",
+          "affibody_displayed_position_10_crystal_position_12",
+          "affibody_displayed_position_13_crystal_position_15",
+          "affibody_displayed_position_14_crystal_position_16",
+          "affibody_displayed_position_17_crystal_position_19"
+        ],
+        "wild_type_mutant_subtraction": false,
+        "assay_scaffold_identity": {
+          "context_mode": "assay_resolved_fragment",
+          "hla_sequence_source": "canonical assay SMART-HLA segment",
+          "hla_positions_mapped_to_pdb_chain_a": [
+            1,
+            181
+          ],
+          "crystal_to_assay_substitutions": [
+            "A:Y84A",
+            "A:W167A"
+          ],
+          "structure_mapping_schema": "libb-fixed-crystal-contract-v2",
+          "structure_mapping_sha256": "a3d08cfd4a4800d3cb2048dab420e50896f36534548988f282dfd184779c2258"
+        }
+      },
+      "provenance": {
+        "context_mode": "assay_resolved_fragment",
+        "template_context_schema": "stab-libb-assay-resolved-fragment-v1",
+        "upstream_repository": "https://github.com/LDeng0205/StaB-ddG",
+        "upstream_commit": "b19a5d72637a6b581b16f38af39383658e5ae1a5",
+        "checkpoint_sha256": "51a0feb6f9e4f296dbd31db2470c2b8d917d10f64f1302ae63650f43095e348f",
+        "pdb_sha256": "59d026542cc42006302117cc79ad720497e69c4298f95598413f1d172d407b0e",
+        "row_manifest_sha256": "c179996caafc91fb17ed6e56c56953ab01c6dfdf921f138b254c8aea1951e98e",
+        "source_row_schema": "esmfold2-libb-canonical-rows-v1",
+        "structure_mapping_schema": "libb-fixed-crystal-contract-v2",
+        "structure_mapping_sha256": "a3d08cfd4a4800d3cb2048dab420e50896f36534548988f282dfd184779c2258"
+      }
+    }
+  },
+  "architecture": {
+    "readout_mode": "native_learned_projection",
+    "input_adapter": "trainable native projection",
+    "hidden_dims": [
+      64,
+      32
+    ],
+    "dropout": 0.1,
+    "classifier": "LayerNormNative-Linear64-GELU-Dropout-LayerNorm64-Linear32-GELU-Dropout-Linear1",
+    "output": "one current-pair binary logit"
+  },
+  "expected_trainable_parameters": {
+    "nonlinear_7site_control": 11545,
+    "stab_global": 11413,
+    "stab_designed_ordered": 71605,
+    "stab_designed_mean_max": 22105,
+    "stab_global_plus_designed_ordered": 80713
+  },
+  "final_training": {
+    "pilot_seed": 20260811,
+    "seeds": [
+      20260811,
+      20260812,
+      20260813,
+      20260814,
+      20260815
+    ],
+    "backbone_frozen": true,
+    "retention_labels_allowed": false
+  }
+}

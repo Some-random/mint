@@ -1,0 +1,63 @@
+{
+  "schema_version": "liba-final-model-evaluation-config-v1",
+  "library": "LibA",
+  "retention_labels_allowed": false,
+  "models": [
+    {
+      "model_id": "additive_6site",
+      "display_name": "Additive six-position model",
+      "source_model": "additive_6site",
+      "deployment": {
+        "method": "fixed_seed",
+        "seed": "fixed"
+      },
+      "handoff_eligible": false
+    },
+    {
+      "model_id": "mint_l9",
+      "display_name": "Weak-label-selected frozen MINT layer 9",
+      "source_model": "mint_l9",
+      "deployment": {
+        "method": "fixed_seed",
+        "seed": "deployment"
+      },
+      "handoff_eligible": true
+    },
+    {
+      "model_id": "mint_l33_control",
+      "display_name": "Frozen MINT layer 33 control",
+      "source_model": "frozen_mint_layer33_control",
+      "deployment": {
+        "method": "fixed_seed",
+        "seed": "fixed"
+      },
+      "handoff_eligible": false
+    },
+    {
+      "model_id": "nonlinear_6site_mean_logit",
+      "display_name": "Nonlinear six-position model, five-seed mean",
+      "source_model": "nonlinear_6site",
+      "deployment": {
+        "method": "mean_logit",
+        "seeds": [
+          "20260811",
+          "20260812",
+          "20260813",
+          "20260814",
+          "20260815"
+        ]
+      },
+      "handoff_eligible": false
+    },
+    {
+      "model_id": "equal_logit_additive_mint_l9",
+      "display_name": "Equal-logit additive plus MINT layer 9",
+      "source_model": "equal_logit_additive_mint_l9",
+      "deployment": {
+        "method": "fixed_seed",
+        "seed": "deployment"
+      },
+      "handoff_eligible": true
+    }
+  ]
+}

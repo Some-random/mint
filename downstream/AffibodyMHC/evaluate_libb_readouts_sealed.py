@@ -56,21 +56,23 @@ BLINDED_PREDICTION_COLUMNS = (
     "seed",
     "score",
 )
-EXPECTED_EVALUATION_ROWS = 119
+EXPECTED_EVALUATION_ROWS = 120
 EXPECTED_PEPTIDES = 12
 EXPECTED_AFFIBODIES = 10
-EXPECTED_MISSING_MATRIX_CELLS = 1
+EXPECTED_MISSING_MATRIX_CELLS = 0
+EXPECTED_BINDERS = 61
+EXPECTED_NONBINDERS = 59
 RETENTION_THRESHOLD = 75.0
 
-DEFAULT_RETENTION_AUDIT = REPO_ROOT / "private_data/derived/retention_sequences_v2.csv"
-DEFAULT_BASELINE_CONTROLS = (
+DEFAULT_RETENTION_AUDIT = (
     REPO_ROOT
-    / "private_data/experiments/mint_cached_primary_libb_double_cold_v1/predictions.csv"
+    / "private_data/derived/retention_panel_provider_revision_2026-09-03_v2/libb_evaluation_panel.csv"
 )
-DEFAULT_LORA_CONTROL = (
-    REPO_ROOT
-    / "private_data/experiments/mint_selection_one_epoch_libb_v1/retention_predictions.csv"
-)
+# Historical control artifacts contain only 119 predictions.  They must never
+# be silently mixed with a corrected 120-row structural evaluation.  Controls
+# are therefore opt-in until a complete target-free 120-row artifact is named.
+DEFAULT_BASELINE_CONTROLS = None
+DEFAULT_LORA_CONTROL = None
 
 REPORT_METRICS = (
     "global_auroc",
@@ -261,12 +263,12 @@ def discover_current_controls(
     """Load each current control whose default artifact is present."""
     frames = []
     discovered = []
-    baseline_path = Path(baseline_path)
-    lora_path = Path(lora_path)
-    if baseline_path.is_file():
+    baseline_path = Path(baseline_path) if baseline_path is not None else None
+    lora_path = Path(lora_path) if lora_path is not None else None
+    if baseline_path is not None and baseline_path.is_file():
         frames.append(load_site_and_frozen_controls(baseline_path))
         discovered.append(baseline_path)
-    if lora_path.is_file():
+    if lora_path is not None and lora_path.is_file():
         frames.append(load_lora_control(lora_path))
         discovered.append(lora_path)
     if not frames:
@@ -282,6 +284,8 @@ def load_libb_retention_audit(
     expected_peptides=None,
     expected_affibodies=None,
     expected_missing_cells=None,
+    expected_binders=None,
+    expected_nonbinders=None,
 ):
     """Open and validate the direct-retention audit at the final-evaluation gate."""
     path = Path(path)
@@ -377,6 +381,16 @@ def load_libb_retention_audit(
         _require(
             missing_cells == int(expected_missing_cells),
             "retention matrix missing-cell count changed",
+        )
+    if expected_binders is not None:
+        _require(
+            int(output["target_binder"].eq(1).sum()) == int(expected_binders),
+            "retention binder count changed",
+        )
+    if expected_nonbinders is not None:
+        _require(
+            int(output["target_binder"].eq(0).sum()) == int(expected_nonbinders),
+            "retention nonbinder count changed",
         )
     return output.sort_values("eval_row_id").reset_index(drop=True)
 
@@ -523,11 +537,13 @@ def _parse_args(argv=None):
         "--baseline-controls",
         type=Path,
         default=DEFAULT_BASELINE_CONTROLS,
+        help="Optional corrected 120-row legacy site/frozen control artifact.",
     )
     parser.add_argument(
         "--lora-control",
         type=Path,
         default=DEFAULT_LORA_CONTROL,
+        help="Optional corrected 120-row legacy LoRA control artifact.",
     )
     parser.add_argument(
         "--no-current-controls",
@@ -560,6 +576,8 @@ def main(argv=None):
         expected_peptides=EXPECTED_PEPTIDES,
         expected_affibodies=EXPECTED_AFFIBODIES,
         expected_missing_cells=EXPECTED_MISSING_MATRIX_CELLS,
+        expected_binders=EXPECTED_BINDERS,
+        expected_nonbinders=EXPECTED_NONBINDERS,
     )
     metrics, per_peptide, ranked = evaluate_matched_predictions(predictions, audit)
     seed_summary = summarize_across_seeds(metrics)

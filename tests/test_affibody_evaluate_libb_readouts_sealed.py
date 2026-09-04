@@ -6,6 +6,14 @@ import pytest
 
 from downstream.AffibodyMHC.evaluate_libb_readouts_sealed import (
     BLINDED_PREDICTION_COLUMNS,
+    DEFAULT_RETENTION_AUDIT,
+    EXPECTED_AFFIBODIES,
+    EXPECTED_BINDERS,
+    EXPECTED_EVALUATION_ROWS,
+    EXPECTED_MISSING_MATRIX_CELLS,
+    EXPECTED_NONBINDERS,
+    EXPECTED_PEPTIDES,
+    discover_current_controls,
     evaluate_matched_predictions,
     load_blinded_predictions,
     load_libb_retention_audit,
@@ -116,6 +124,34 @@ def test_retention_audit_accepts_row_id_sidecar_key(tmp_path):
     assert "eval_row_id" in loaded
     assert "row_id" not in loaded
     assert set(loaded["eval_row_id"]) == set(audit["row_id"])
+
+
+def test_default_corrected_private_audit_is_complete_if_present():
+    if not DEFAULT_RETENTION_AUDIT.is_file():
+        pytest.skip("corrected private LibB panel is unavailable")
+    loaded = load_libb_retention_audit(
+        DEFAULT_RETENTION_AUDIT,
+        expected_rows=EXPECTED_EVALUATION_ROWS,
+        expected_peptides=EXPECTED_PEPTIDES,
+        expected_affibodies=EXPECTED_AFFIBODIES,
+        expected_missing_cells=EXPECTED_MISSING_MATRIX_CELLS,
+        expected_binders=EXPECTED_BINDERS,
+        expected_nonbinders=EXPECTED_NONBINDERS,
+    )
+    assert len(loaded) == 120
+    assert loaded["target_binder"].value_counts().to_dict() == {1: 61, 0: 59}
+    target = loaded.loc[
+        loaded["peptide_design_code"].eq("AH")
+        & loaded["affibody_design_code"].eq("LIFTK")
+    ]
+    assert len(target) == 1
+    assert target.iloc[0]["target_retention"] == pytest.approx(87.94)
+
+
+def test_historical_119_row_controls_are_not_auto_discovered():
+    controls, paths = discover_current_controls()
+    assert controls.empty
+    assert paths == []
 
 
 def test_final_merge_computes_all_required_metrics_on_matched_panel():

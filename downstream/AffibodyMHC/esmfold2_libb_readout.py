@@ -1,4 +1,4 @@
-"""Small frozen-feature readouts for the canonical LibB experiment.
+"""Small frozen-feature readouts for canonical LibA or LibB experiments.
 
 The folding model is a feature extractor in this experiment.  This module does
 not run ESMFold2, predict coordinates, attach physical meanings to its 64
@@ -90,6 +90,11 @@ FORBIDDEN_METADATA_COLUMN_PARTS = (
     "target",
 )
 MERGED_CACHE_SCHEMA_VERSION = "esmfold2-libb-feature-merge-v1"
+LIBA_MERGED_CACHE_SCHEMA_VERSION = "esmfold2-liba-feature-merge-v1"
+ACCEPTED_MERGED_CACHE_SCHEMAS = {
+    MERGED_CACHE_SCHEMA_VERSION,
+    LIBA_MERGED_CACHE_SCHEMA_VERSION,
+}
 CACHE_ARRAY_SHAPES = {
     "distogram_probabilities": FEATURE_SHAPES["distogram_probabilities"],
     "pair_states_symmetric": FEATURE_SHAPES["pair_states_symmetric"],
@@ -210,7 +215,7 @@ class SingleInputPairInteraction(nn.Module):
         return peptide_values[:, :, None, :] * affibody_values[:, None, :, :]
 
 
-class EsmFold2LibBReadout(nn.Module):
+class EsmFold2PairReadout(nn.Module):
     """One of five matched readouts over frozen ESMFold2 features."""
 
     def __init__(
@@ -295,10 +300,13 @@ class EsmFold2LibBReadout(nn.Module):
         return (logits, attention) if return_attention else logits
 
 
-def build_readout(model_name: str, architecture: Mapping[str, object]) -> EsmFold2LibBReadout:
+EsmFold2LibBReadout = EsmFold2PairReadout
+
+
+def build_readout(model_name: str, architecture: Mapping[str, object]) -> EsmFold2PairReadout:
     """Construct a readout from the shared architecture section of a config."""
 
-    return EsmFold2LibBReadout(
+    return EsmFold2PairReadout(
         model_name=model_name,
         pair_hidden_dim=int(architecture["pair_hidden_dim"]),
         single_interaction_dim=int(architecture["single_interaction_dim"]),
@@ -378,8 +386,8 @@ class FrozenFeatureStore:
         with manifest_path.open("r", encoding="utf-8") as handle:
             manifest = json.load(handle)
         _require(
-            manifest.get("schema_version") == MERGED_CACHE_SCHEMA_VERSION,
-            "merged feature-cache manifest schema changed",
+            manifest.get("schema_version") in ACCEPTED_MERGED_CACHE_SCHEMAS,
+            "merged feature-cache manifest schema is not an accepted LibA/LibB contract",
         )
         _require(
             manifest.get("supervision_fields_read") == [],
@@ -566,11 +574,12 @@ class FrozenFeatureDataset(Dataset):
     def __getitem__(self, index: int) -> dict[str, object]:
         cache_index = int(self.cache_indices[index])
         item: dict[str, object] = {
-            # Copy to writable float32 CPU arrays before the DataLoader converts
-            # them to tensors; this avoids warnings and keeps mmap pages lazy.
-            name: np.array(
-                self.store.arrays[name][cache_index], dtype=np.float32, copy=True
-            )
+            # Copy the source float16 row to writable host memory, but leave its
+            # exact stored dtype unchanged.  ``_model_inputs`` performs the
+            # required float32 conversion on the destination device.  Casting
+            # here instead made every epoch repeat a large CPU conversion and
+            # quadrupled loader time without changing a single model value.
+            name: np.array(self.store.arrays[name][cache_index], copy=True)
             for name in self.required_features
         }
         item["row_id"] = self.row_ids[index]

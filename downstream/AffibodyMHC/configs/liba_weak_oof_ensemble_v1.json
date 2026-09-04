@@ -1,0 +1,54 @@
+{
+  "schema_version": "affibody-weak-oof-ensemble-config-v1",
+  "library": "LibA",
+  "fold_membership": "../../../private_data/experiments/liba_common_oof_sequence_predictions_v1/fold_membership.csv.gz",
+  "members": [
+    {
+      "name": "additive_6site",
+      "oof_path": "../../../private_data/experiments/liba_common_oof_sequence_predictions_v1/weak_oof_aligned.csv.gz",
+      "audit_path": "../../../private_data/experiments/liba_common_oof_sequence_predictions_v1/summary.json",
+      "probability_column": "additive_6site",
+      "row_id_column": "row_id",
+      "fold_column": "fold",
+      "weak_label_column": "weak_label",
+      "inference_logit_column": "additive_6site_logit"
+    },
+    {
+      "name": "frozen_mint_layer9",
+      "oof_path": "../../../private_data/experiments/liba_common_oof_sequence_predictions_v1/weak_oof_aligned.csv.gz",
+      "audit_path": "../../../private_data/experiments/liba_common_oof_sequence_predictions_v1/summary.json",
+      "probability_column": "frozen_mint_layer9",
+      "row_id_column": "row_id",
+      "fold_column": "fold",
+      "weak_label_column": "weak_label",
+      "inference_logit_column": "mint_layer9_logit"
+    },
+    {
+      "name": "frozen_mint_layer33_control",
+      "oof_path": "../../../private_data/experiments/liba_common_oof_sequence_predictions_v1/weak_oof_aligned.csv.gz",
+      "audit_path": "../../../private_data/experiments/liba_common_oof_sequence_predictions_v1/summary.json",
+      "probability_column": "frozen_mint_layer33_control",
+      "row_id_column": "row_id",
+      "fold_column": "fold",
+      "weak_label_column": "weak_label",
+      "inference_logit_column": "mint_layer33_logit"
+    },
+    {
+      "name": "nonlinear_6site_mean_logit",
+      "oof_path": "../../../private_data/experiments/liba_common_oof_sequence_predictions_v1/weak_oof_aligned.csv.gz",
+      "audit_path": "../../../private_data/experiments/liba_common_oof_sequence_predictions_v1/summary.json",
+      "probability_column": "nonlinear_6site_mean_logit",
+      "row_id_column": "row_id",
+      "fold_column": "fold",
+      "weak_label_column": "weak_label",
+      "inference_logit_column": "nonlinear_6site_ensemble_logit"
+    }
+  ],
+  "common_row_policy": "require_exact",
+  "expected_folds": 3,
+  "expected_common_oof_rows": 7515,
+  "expected_common_oof_positive": 3759,
+  "fit_nonnegative_stacker": true,
+  "stack_l2_grid": [0.0, 0.001, 0.01, 0.1, 1.0, 10.0],
+  "max_candidates_per_peptide": 10
+}

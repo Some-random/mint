@@ -1,7 +1,7 @@
-"""Train leakage-safe LibB readouts over frozen ESMFold2 trunk features.
+"""Train leakage-safe LibA or LibB readouts over frozen ESMFold2 features.
 
 This command deliberately has no retention-data argument.  Its only labels are
-the canonical selection-derived weak labels in the physically separate LibB
+the canonical selection-derived weak labels in a physically separate
 training sidecar.  Partner sequence hashes in that sidecar reproduce the exact
 three diagonal double-identity-cold partitions (split seed 17), including the
 XOR guard rows.
@@ -10,11 +10,11 @@ The normal workflow is:
 
 1. ``cross_validate`` to choose only the number of training epochs from weak
    validation loss for each prespecified readout;
-2. ``fit_final`` to train five head seeds on all 30,648 weak pairs and emit
+2. ``fit_final`` to train five head seeds on all weak pairs and emit
    label-free predictions for requested cache row IDs.
 
-The separate sealed evaluator may later join those predictions to the 119
-direct-retention measurements.  This module never performs that join.
+The separate sealed evaluator may later join those predictions to direct-
+retention measurements.  This module never performs that join.
 """
 
 from __future__ import annotations
@@ -64,6 +64,11 @@ from downstream.AffibodyMHC.esmfold2_libb_readout import (
 
 PRIVATE_ROOT = (REPO_ROOT / "private_data").resolve()
 SCHEMA_VERSION = "esmfold2-libb-frozen-readouts-v1"
+LIBA_SCHEMA_VERSION = "esmfold2-liba-frozen-readouts-v1"
+READOUT_SCHEMA_BY_LIBRARY = {
+    "LibA": LIBA_SCHEMA_VERSION,
+    "LibB": SCHEMA_VERSION,
+}
 TRAINING_LABEL_COLUMNS = (
     "row_id",
     "weak_label",
@@ -73,6 +78,11 @@ TRAINING_LABEL_COLUMNS = (
     "chain2_sha256",
 )
 TRAINING_LABEL_SCHEMA_VERSION = "esmfold2-libb-training-labels-v1"
+LIBA_TRAINING_LABEL_SCHEMA_VERSION = "esmfold2-liba-training-labels-v1"
+TRAINING_LABEL_SCHEMA_BY_LIBRARY = {
+    "LibA": LIBA_TRAINING_LABEL_SCHEMA_VERSION,
+    "LibB": TRAINING_LABEL_SCHEMA_VERSION,
+}
 
 
 def _require(condition: bool, message: str) -> None:
@@ -107,8 +117,12 @@ def _json_dump(path: Path, payload: Any) -> None:
 def _read_config(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         config = json.load(handle)
-    _require(config.get("schema_version") == SCHEMA_VERSION, "config schema mismatch")
-    _require(config.get("dataset", {}).get("library") == "LibB", "only LibB is allowed")
+    library = str(config.get("dataset", {}).get("library"))
+    _require(library in READOUT_SCHEMA_BY_LIBRARY, "dataset library must be LibA or LibB")
+    _require(
+        config.get("schema_version") == READOUT_SCHEMA_BY_LIBRARY[library],
+        "config schema mismatch",
+    )
     _require(
         config.get("validation", {}).get("regime") == "double_cold",
         "validation must remain double_cold",
@@ -185,7 +199,8 @@ def load_canonical_training_labels(
     with manifest_path.open("r", encoding="utf-8") as handle:
         manifest = json.load(handle)
     _require(
-        manifest.get("schema_version") == TRAINING_LABEL_SCHEMA_VERSION,
+        manifest.get("schema_version")
+        == TRAINING_LABEL_SCHEMA_BY_LIBRARY[str(config["dataset"]["library"])],
         "training-label manifest schema changed",
     )
     output_contract = manifest.get("output", {})
@@ -214,7 +229,7 @@ def load_canonical_training_labels(
     _require(
         _membership_sha256(base["row_id"].tolist())
         == dataset_contract["row_id_membership_sha256"],
-        "canonical LibB membership changed",
+        "canonical training membership changed",
     )
 
     blocks = []
@@ -271,15 +286,35 @@ def _cache_indices_for(frame: pd.DataFrame, store: FrozenFeatureStore) -> np.nda
     return np.asarray([lookup[row_id] for row_id in frame["row_id"]], dtype=np.int64)
 
 
-def _validate_cache_split(base: pd.DataFrame, store: FrozenFeatureStore) -> None:
-    _require(len(store.row_ids) == 30_767, "merged cache must contain 30,767 rows")
+def _evaluation_rows(config: Mapping[str, Any]) -> int:
+    dataset = config["dataset"]
+    if "evaluation_rows" in dataset:
+        return int(dataset["evaluation_rows"])
+    _require(dataset.get("library") == "LibB", "LibA config must declare evaluation_rows")
+    return 119
+
+
+def _validate_cache_split(
+    base: pd.DataFrame,
+    store: FrozenFeatureStore,
+    config: Mapping[str, Any],
+) -> None:
+    expected_train = int(config["dataset"]["rows"])
+    expected_eval = _evaluation_rows(config)
+    _require(
+        len(store.row_ids) == expected_train + expected_eval,
+        "merged cache total row count changed",
+    )
     train_ids = {
         row_id for row_id, split in zip(store.row_ids, store.splits) if split == "train"
     }
     eval_ids = {
         row_id for row_id, split in zip(store.row_ids, store.splits) if split == "eval"
     }
-    _require(len(train_ids) == 30_648 and len(eval_ids) == 119, "cache split sizes changed")
+    _require(
+        len(train_ids) == expected_train and len(eval_ids) == expected_eval,
+        "cache split sizes changed",
+    )
     _require(train_ids == set(base["row_id"]), "training-label and cache train memberships differ")
     _require(train_ids.isdisjoint(eval_ids), "cache train/eval row IDs overlap")
 
@@ -532,7 +567,7 @@ def run_cross_validation(
             prediction_blocks.append(predictions)
             torch.save(
                 {
-                    "schema_version": SCHEMA_VERSION,
+                    "schema_version": config["schema_version"],
                     "model": model_name,
                     "fold": fold,
                     "seed": fold_seed,
@@ -610,8 +645,12 @@ def _fit_fixed_epochs(
     return model, losses
 
 
-def _read_prediction_row_ids(path: Path | None, store: FrozenFeatureStore) -> pd.DataFrame:
-    """Load a label-free roster; by default select the 119 cache rows marked eval."""
+def _read_prediction_row_ids(
+    path: Path | None,
+    store: FrozenFeatureStore,
+    expected_evaluation_rows: int | None = None,
+) -> pd.DataFrame:
+    """Load a label-free roster; by default select cache rows marked eval."""
 
     if path is None:
         row_ids = [
@@ -619,7 +658,11 @@ def _read_prediction_row_ids(path: Path | None, store: FrozenFeatureStore) -> pd
             for row_id, split in zip(store.row_ids, store.splits)
             if split == "eval"
         ]
-        _require(len(row_ids) == 119, "default evaluation cache panel is not 119 rows")
+        if expected_evaluation_rows is not None:
+            _require(
+                len(row_ids) == int(expected_evaluation_rows),
+                "default evaluation cache panel size changed",
+            )
         return pd.DataFrame({"row_id": row_ids})
     with path.open("r", encoding="utf-8") as handle:
         header = handle.readline().rstrip("\n").split(",")
@@ -657,7 +700,7 @@ def run_final_training(
             )
             torch.save(
                 {
-                    "schema_version": SCHEMA_VERSION,
+                    "schema_version": config["schema_version"],
                     "model": model_name,
                     "seed": seed,
                     "epochs": epochs,
@@ -769,11 +812,11 @@ def main() -> None:
         verify_all_checksums=bool(args.verify_cache_checksums or args.mode == "audit"),
     )
     _cache_indices_for(base, store)
-    _validate_cache_split(base, store)
+    _validate_cache_split(base, store, config)
     audit = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": config["schema_version"],
         "retention_labels_read": False,
-        "library": "LibB",
+        "library": config["dataset"]["library"],
         "weak_rows": int(len(base)),
         "weak_positive": int(base["weak_label"].sum()),
         "weak_negative": int(base["weak_label"].eq(0).sum()),
@@ -819,7 +862,11 @@ def main() -> None:
             selected_epochs = {str(key): int(value) for key, value in json.load(handle).items()}
 
     if args.mode in ("fit_final", "all"):
-        prediction_frame = _read_prediction_row_ids(args.prediction_row_ids, store)
+        prediction_frame = _read_prediction_row_ids(
+            args.prediction_row_ids,
+            store,
+            expected_evaluation_rows=_evaluation_rows(config),
+        )
         run_final_training(
             base,
             prediction_frame,

@@ -62,15 +62,37 @@ EXPECTED = {
     "train": 30648,
     "train_positive": 23725,
     "train_negative": 6923,
-    "eval": 119,
-    "eval_positive": 60,
+    "eval": 120,
+    "eval_positive": 61,
     "eval_negative": 59,
-    "total": 30767,
+    "total": 30768,
     "train_unique_chain1": 214,
     "train_unique_chain2": 23081,
     "eval_unique_chain1": 12,
     "eval_unique_chain2": 10,
 }
+
+CORRECTED_EVALUATION_SCHEMA_VERSION = "affibody-corrected-retention-panel-v1"
+CORRECTED_EVALUATION_COLUMNS = (
+    "pair_uid",
+    "library",
+    "peptide_design_code",
+    "affibody_design_code",
+    "target_retention",
+    "target_binder",
+    "peptide_uid",
+    "affibody_uid",
+    "chain1_smart_hla_linker_peptide_sequence",
+    "chain2_affibody_sequence",
+    "chain1_sha256",
+    "chain2_sha256",
+    "sequence_pair_sha256",
+)
+CORRECTED_EVALUATION_IDENTITY_COLUMNS = tuple(
+    column
+    for column in CORRECTED_EVALUATION_COLUMNS
+    if column not in {"target_retention", "target_binder"}
+)
 
 EXTRACTOR_COLUMNS = (
     "row_index",
@@ -326,6 +348,88 @@ def validate_source_lineage(rows_path, source_manifest_path):
             "template_deck_sha256"
         ],
     }
+
+
+def load_corrected_evaluation_panel(panel_path, panel_manifest_path):
+    """Load and hash-bind the provider-revised complete LibB panel.
+
+    The historical weak cache contains all 120 LibB sequence identities, but
+    marks AH x LIFTK as unmeasured.  This separate, audited artifact supplies
+    only the corrected direct-outcome state; it must not alter any sequence or
+    stable identity used by the canonical row contract.
+    """
+    panel_path = Path(panel_path)
+    panel_manifest_path = Path(panel_manifest_path)
+    _require(panel_path.is_file(), "corrected LibB evaluation panel is missing")
+    _require(
+        panel_manifest_path.is_file(),
+        "corrected LibB evaluation manifest is missing",
+    )
+    manifest = read_json(panel_manifest_path)
+    _require(
+        manifest.get("schema_version") == CORRECTED_EVALUATION_SCHEMA_VERSION,
+        "unexpected corrected-evaluation schema",
+    )
+    output = manifest.get("outputs", {}).get(panel_path.name, {})
+    _require(
+        output.get("sha256") == sha256_file(panel_path),
+        "corrected evaluation panel hash disagrees with its manifest",
+    )
+    _require(output.get("rows") == 120, "corrected evaluation manifest is not 120 rows")
+    summary = manifest.get("normalized_libb_evaluation_panel", {})
+    _require(summary.get("rows") == 120, "corrected LibB summary is not 120 rows")
+    _require(summary.get("binders_retention_ge_75") == 61, "corrected LibB binder count changed")
+    _require(summary.get("nonbinders_retention_lt_75") == 59, "corrected LibB nonbinder count changed")
+
+    panel = read_string_csv(panel_path)
+    missing = set(CORRECTED_EVALUATION_COLUMNS).difference(panel.columns)
+    _require(not missing, "corrected evaluation panel lacks columns {}".format(sorted(missing)))
+    _require(len(panel) == 120, "corrected evaluation panel must contain 120 rows")
+    _require(panel["pair_uid"].nunique() == 120, "corrected evaluation panel has duplicate pair IDs")
+    _require(panel["library"].eq(LIBRARY).all(), "corrected evaluation panel is not LibB-only")
+    return panel, {
+        "provider_correction_panel_sha256": sha256_file(panel_path),
+        "provider_correction_manifest_sha256": sha256_file(panel_manifest_path),
+    }
+
+
+def apply_corrected_evaluation_panel(source, corrected_panel):
+    """Overlay outcomes onto the historical cache after identity validation."""
+    source = source.copy()
+    matrix_mask = source["source_kind"].eq("retention") & source["library"].eq(LIBRARY)
+    matrix = source.loc[matrix_mask].copy()
+    expected_rows = len(corrected_panel)
+    _require(expected_rows > 0, "corrected evaluation panel is empty")
+    _require(
+        len(matrix) == expected_rows,
+        "historical cache and corrected LibB panel row counts differ",
+    )
+    _require(
+        matrix["pair_uid"].nunique() == expected_rows,
+        "historical LibB matrix has duplicate pair IDs",
+    )
+    _require(
+        set(matrix["pair_uid"]) == set(corrected_panel["pair_uid"]),
+        "corrected panel and historical cache have different LibB pair IDs",
+    )
+
+    historical = matrix.set_index("pair_uid", drop=False).sort_index()
+    corrected = corrected_panel.set_index("pair_uid", drop=False).sort_index()
+    for column in CORRECTED_EVALUATION_IDENTITY_COLUMNS:
+        _require(
+            historical[column].astype(str).tolist()
+            == corrected[column].astype(str).tolist(),
+            "corrected panel changed stable identity/sequence column {}".format(column),
+        )
+
+    updated = historical.copy()
+    updated["measurement_missing"] = "0"
+    updated["target_retention"] = corrected["target_retention"].astype(str)
+    updated["target_binder"] = corrected["target_binder"].astype(str)
+    replacement = updated.reindex(matrix["pair_uid"].tolist())
+    for column in ("measurement_missing", "target_retention", "target_binder"):
+        source.loc[matrix.index, column] = replacement[column].to_numpy()
+    return source
 
 
 def _validate_code_and_sequence_mapping(row):
@@ -707,7 +811,13 @@ def run_build(args):
         _require(not checked.exists(), "output directory exists: {}".format(checked))
 
     lineage = validate_source_lineage(args.cache_rows, args.cache_rows_manifest)
+    corrected_panel, corrected_lineage = load_corrected_evaluation_panel(
+        args.corrected_evaluation_panel,
+        args.corrected_evaluation_manifest,
+    )
+    lineage.update(corrected_lineage)
     source = read_string_csv(args.cache_rows)
+    source = apply_corrected_evaluation_panel(source, corrected_panel)
     extractor, training_labels, evaluation_labels = build_tables(source)
 
     extractor_dir = _ensure_new_private_directory(args.extractor_output_dir)
@@ -776,6 +886,18 @@ def parse_args(argv=None):
         type=Path,
         default=REPO_ROOT
         / "private_data/derived/mint_weak_cache_v1/rows/manifest.json",
+    )
+    parser.add_argument(
+        "--corrected-evaluation-panel",
+        type=Path,
+        default=REPO_ROOT
+        / "private_data/derived/retention_panel_provider_revision_2026-09-03_v2/libb_evaluation_panel.csv",
+    )
+    parser.add_argument(
+        "--corrected-evaluation-manifest",
+        type=Path,
+        default=REPO_ROOT
+        / "private_data/derived/retention_panel_provider_revision_2026-09-03_v2/manifest.json",
     )
     parser.add_argument("--extractor-output-dir", required=True, type=Path)
     parser.add_argument("--training-output-dir", required=True, type=Path)

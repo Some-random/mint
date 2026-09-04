@@ -30,6 +30,15 @@ def _chain2(first: str) -> str:
     return first + "G" * 57
 
 
+def _liba_chain2(code: str = "VVKI") -> str:
+    sequence = list("A" * 58)
+    for position, amino_acid in zip(
+        extractor.LIBA_PROFILE.affibody_code_positions_1_based, code
+    ):
+        sequence[position - 1] = amino_acid
+    return "".join(sequence)
+
+
 def _raw_row(index: int, split: str, chain1: str, chain2: str) -> dict:
     return {
         "row_index": index,
@@ -135,6 +144,48 @@ def test_small_manifest_contract_and_strict_split():
     leaked[2] = _raw_row(2, "eval", leaked[0]["chain1_sequence"], _chain2("D"))
     with pytest.raises(ValueError, match="evaluation chain1 occurs in training"):
         extractor._validate_rows(leaked, _small_expectations())
+
+
+def test_liba_profile_is_inferred_and_uses_four_displayed_sequence_positions(tmp_path):
+    chain1 = _chain1("A", peptide_code="MW")
+    chain2 = _liba_chain2("VVKI")
+    row = {
+        "row_index": 0,
+        "row_id": "liba-0",
+        "split": "train",
+        "library": "LibA",
+        "chain1_sequence": chain1,
+        "chain2_sequence": chain2,
+        "sequence_pair_sha256": _pair_hash(chain1, chain2),
+        "peptide_design_code": "MW",
+        "affibody_design_code": "VVKI",
+    }
+    observed = extractor._validate_row_mapping(row, profile=extractor.LIBA_PROFILE)
+    assert observed.chain2_sequence == chain2
+
+    wrong_code = dict(row, affibody_design_code="VVKV")
+    with pytest.raises(ValueError, match="Affibody design code mapping mismatch"):
+        extractor._validate_row_mapping(wrong_code, profile=extractor.LIBA_PROFILE)
+
+    payload = {
+        "schema_version": extractor.LIBA_ROW_MANIFEST_SCHEMA,
+        "rows": [row],
+    }
+    path = tmp_path / "rows.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    loaded, rows = extractor._load_row_manifest(
+        path,
+        expectations=extractor.DatasetExpectations(
+            train_rows=1,
+            eval_rows=0,
+            train_chain1=1,
+            train_chain2=1,
+            eval_chain1=0,
+            eval_chain2=0,
+        ),
+    )
+    assert extractor._profile_for_manifest(loaded) == extractor.LIBA_PROFILE
+    assert [value.row_id for value in rows] == ["liba-0"]
 
 
 def test_builder_rows_payload_loads_directly_in_extractor(tmp_path):

@@ -1,0 +1,76 @@
+{
+  "schema_version": "liba-model-comparison-config-v1",
+  "sources": [
+    {
+      "model": "additive_6site",
+      "display_name": "Additive six-position model",
+      "path": "private_data/experiments/liba_sequence_sealed_evaluation_v1_inputs/target_free_sequence_scores.csv",
+      "id_column": "eval_row_id",
+      "score_column": "score",
+      "seed": "deployment",
+      "filters": {
+        "model": "additive_6site",
+        "seed": "fixed"
+      }
+    },
+    {
+      "model": "mint_l9",
+      "display_name": "Weak-label-selected frozen MINT layer 9",
+      "path": "private_data/experiments/liba_sequence_sealed_evaluation_v1_inputs/target_free_sequence_scores.csv",
+      "id_column": "eval_row_id",
+      "score_column": "score",
+      "seed": "deployment",
+      "filters": {
+        "model": "mint_l9",
+        "seed": "deployment"
+      }
+    },
+    {
+      "model": "mint_l33_control",
+      "display_name": "Frozen MINT layer 33 control",
+      "path": "private_data/experiments/liba_sequence_sealed_evaluation_v1_inputs/target_free_sequence_scores.csv",
+      "id_column": "eval_row_id",
+      "score_column": "score",
+      "seed": "deployment",
+      "filters": {
+        "model": "frozen_mint_layer33_control",
+        "seed": "fixed"
+      }
+    },
+    {
+      "model": "nonlinear_6site_mean_logit",
+      "display_name": "Nonlinear six-position model, five-seed mean",
+      "path": "private_data/experiments/liba_sequence_sealed_evaluation_v1_inputs/target_free_sequence_scores.csv",
+      "id_column": "eval_row_id",
+      "score_column": "score",
+      "seed": "deployment",
+      "filters": {
+        "model": "nonlinear_6site_mean_logit",
+        "seed": "deployment"
+      }
+    },
+    {
+      "model": "nonlinear_6site_seeds",
+      "display_name": "Nonlinear six-position model",
+      "path": "private_data/experiments/liba_sequence_sealed_evaluation_v1_inputs/target_free_sequence_scores.csv",
+      "id_column": "eval_row_id",
+      "score_column": "score",
+      "seed_column": "seed",
+      "filters": {
+        "model": "nonlinear_6site"
+      }
+    },
+    {
+      "model": "equal_logit_additive_mint_l9",
+      "display_name": "Equal-logit additive plus MINT layer 9",
+      "path": "private_data/experiments/liba_sequence_sealed_evaluation_v1_inputs/target_free_sequence_scores.csv",
+      "id_column": "eval_row_id",
+      "score_column": "score",
+      "seed": "deployment",
+      "filters": {
+        "model": "equal_logit_additive_mint_l9",
+        "seed": "deployment"
+      }
+    }
+  ]
+}

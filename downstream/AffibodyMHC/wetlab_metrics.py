@@ -1,10 +1,10 @@
 """Canonical evaluation metrics for Affibody wet-lab candidate selection.
 
 The retention matrix is evaluated as a collection of peptide-specific
-candidate lists.  This module deliberately never reshapes the data into a
-complete peptide-by-Affibody rectangle: the current LibB panel has one
-unmeasured pair (119 rows rather than 120), and that missing pair must not be
-imputed.
+candidate lists.  This module deliberately does not depend on a rectangular
+matrix representation: the corrected LibB panel currently contains all
+12 x 10 = 120 measured pairs, while the same metric implementation also works
+for future candidate panels with unequal numbers of Affibodies per peptide.
 
 Ranking ties are resolved deterministically by ascending Affibody identifier
 after sorting by descending model score.  Callers should pass the stable,
