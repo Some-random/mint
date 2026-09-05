@@ -1,16 +1,17 @@
 # Affibody project recovery manifest
 
-Frozen backup date: 2026-09-04 UTC
+Initial backup snapshot: 2026-09-04 UTC
 
 This repository preserves the reusable Affibody modeling source, configuration,
 tests, and the original MINT history. The frozen recovery branch is
 `backup/affibody-work-2026-09-04`; the matching release tag is
 `affibody-backup-2026-09-04`.
 
-The backup is private because it contains unpublished experimental material.
-Its intended destination is the standalone private repository
-`Some-random/mint-affibody-private`. The public `Some-random/mint` fork is not a
-backup destination and must not receive the private archives or new reports.
+The Git-tracked, public-safe backup is maintained incrementally on the
+`Some-random/mint` fork. It contains reusable code, tests, audit logic, and
+curated reports, but not raw provider data, per-pair private result tables,
+feature arrays, checkpoints, or private archives. A standalone private release
+is retained as a redundant recovery copy for those non-public materials.
 
 ## Reports tracked in Git
 
@@ -21,7 +22,8 @@ The following curated reports are stored as ordinary Git objects:
 - `private_data/affibody_weak_label_report_public_2026-09-02.md`;
 - `private_data/affibody_structure_model_report_public_2026-09-03.md`;
 - `private_data/affibody_liba_structure_model_report_public_2026-09-04.md`;
-- `private_data/affibody_liba_candidate_selection_report_public_2026-09-04.md`.
+- `private_data/affibody_liba_candidate_selection_report_public_2026-09-04.md`;
+- `private_data/affibody_libb_cross_model_agreement_report_public_2026-09-05.md`.
 
 `data_revision_audit.md` records the provider-data corrections and identifies
 which older results are historical snapshots. In particular, older documents
@@ -29,7 +31,8 @@ that say LibB has 119 measured pairs predate the corrected 120-pair matrix.
 
 ## Release assets
 
-The private release attached to the matching tag is the recovery unit. Its
+The redundant private release attached to the matching tag is the recovery
+unit for non-public material. Its
 `SHA256SUMS` file gives the authoritative checksum for every asset.
 
 | Asset | Purpose |
